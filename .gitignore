@@ -1,43 +1,92 @@
-# Dependencies
-client/node_modules/
-server/venv/
-server/__pycache__/
-server/app/__pycache__/
+# ============================================================
+# Placement Tracker - .gitignore
+# Full Stack: React + Vite | Python Flask | MongoDB
+# ============================================================
+
+# ─── Python Virtual Environments ────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.Python
+
+# ─── Python Bytecode & Cache ────────────────────────────────
+__pycache__/
 **/__pycache__/
+*.py[cod]
+*$py.class
 *.pyc
 *.pyo
 
-# Environment
-.env
-.env.local
-.env.production
-server/.env
+# ─── Python Distribution / Packaging ────────────────────────
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
 
-# Build
+# ─── Node.js Dependencies ──────────────────────────────────
+node_modules/
+client/node_modules/
+
+# ─── Environment Variables ──────────────────────────────────
+.env
+.env.*
+!.env.example
+server/.env
+client/.env
+
+# ─── Build Output ───────────────────────────────────────────
 client/dist/
 client/build/
-*.egg-info/
+server/dist/
+server/build/
 
-# IDE
+# ─── Vite Cache ─────────────────────────────────────────────
+client/.vite/
+*.local
+
+# ─── IDE / Editor Files ────────────────────────────────────
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 *.swp
 *.swo
 *~
 
-# OS
+# ─── OS Generated Files ────────────────────────────────────
 .DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# Logs
+# ─── Log Files ──────────────────────────────────────────────
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+pip-log.txt
 
-# Coverage
+# ─── Testing & Coverage ────────────────────────────────────
 coverage/
 .coverage
 htmlcov/
+.pytest_cache/
+.nyc_output/
 
-# Misc
-*.bak
+# ─── Temporary Files ───────────────────────────────────────
 *.tmp
+*.temp
+*.bak
+*.orig
+
+# ─── Misc ───────────────────────────────────────────────────
+.cache/
+*.gz
+*.zip
+*.tar
+.eslintcache
