@@ -13,9 +13,11 @@ def init_db(app):
 
 def init_cors(app):
     """Initialize CORS."""
+    frontend_url = app.config["FRONTEND_URL"]
+    origins = [origin.strip() for origin in frontend_url.split(",")]
     CORS(
         app,
-        resources={r"/api/*": {"origins": app.config["FRONTEND_URL"]}},
+        resources={r"/api/*": {"origins": origins}},
         supports_credentials=True,
     )
 

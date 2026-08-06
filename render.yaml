@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: placement-tracker-api
+    runtime: python
+    region: oregon
+    rootDir: server
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: Placement_Tracker
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
