@@ -16,7 +16,7 @@ def init_scheduler(app):
     def sync_job():
         with app.app_context():
             from app.services.sync_service import sync_all_students
-            print("⏰ Scheduled sync started...")
+            print("[SYNC] Scheduled sync started...")
             sync_all_students()
 
     scheduler.add_job(
@@ -28,4 +28,4 @@ def init_scheduler(app):
     )
 
     scheduler.start()
-    print(f"📅 Scheduler started: syncing every {Config.SYNC_INTERVAL_HOURS} hours")
+    print(f"[SCHEDULER] Started: syncing every {Config.SYNC_INTERVAL_HOURS} hours")
