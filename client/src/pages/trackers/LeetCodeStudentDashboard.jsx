@@ -16,15 +16,6 @@ import Card from '../../components/ui/Card';
 import DailyTasksHistoryModal from '../../components/ui/DailyTasksHistoryModal';
 import { TableSkeleton } from '../../components/feedback/Skeleton';
 
-const defaultActivities = [
-  { id: 'act-1', studentName: 'PRASANNA KUMAR T', problemTitle: 'Majority Frequency Characters', difficulty: 'EASY', timeAgo: '12 mins ago' },
-  { id: 'act-2', studentName: 'KRISHNA KUMAR KM', problemTitle: 'Two Sum', difficulty: 'EASY', timeAgo: '19 mins ago' },
-  { id: 'act-3', studentName: 'PRASANNA KUMAR T', problemTitle: 'Bitwise OR of Even Numbers in an Array', difficulty: 'EASY', timeAgo: '21 mins ago' },
-  { id: 'act-4', studentName: 'KRISHNA KUMAR KM', problemTitle: 'Remove Methods From Project', difficulty: 'MEDIUM', timeAgo: '22 mins ago' },
-  { id: 'act-5', studentName: 'PRASANNA KUMAR T', problemTitle: 'Maximize Sum of At Most K Distinct Elements', difficulty: 'EASY', timeAgo: '31 mins ago' },
-  { id: 'act-6', studentName: 'PRASANNA KUMAR T', problemTitle: 'Earliest Time to Finish One Task', difficulty: 'EASY', timeAgo: '32 mins ago' },
-];
-
 export default function LeetCodeStudentDashboard() {
   const navigate = useNavigate();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -93,31 +84,51 @@ export default function LeetCodeStudentDashboard() {
     return rows.sort((a, b) => b.solved - a.solved).slice(0, 5);
   }, [students]);
 
-  // Compute Recent Activity Feed (combines live submissions if available with fallback)
+  // Compute Recent Activity Feed from real student profiles and deduplicate entries per student+problem
   const activityFeed = useMemo(() => {
     const liveItems = [];
+    const seenKeys = new Set();
+
     (students || []).forEach((student) => {
       const profile = student.platform_profiles?.leetcode || {};
       const recent = profile.raw?.recent_submissions || [];
+      const studentId = student.id || student._id || student.name;
+
       recent.forEach((sub) => {
-        const timeDiff = Math.max(1, Math.floor((Date.now() - (Number(sub.timestamp) * 1000 || Date.now())) / 60000));
-        const timeStr = timeDiff < 60 ? `${timeDiff} mins ago` : `${Math.floor(timeDiff / 60)} hours ago`;
+        const problemKey = sub.titleSlug || sub.title;
+        const uniqueKey = `${studentId}-${problemKey}`;
+
+        // Skip duplicate problem entries for the same student (keep most recent)
+        if (seenKeys.has(uniqueKey)) return;
+        seenKeys.add(uniqueKey);
+
+        const tsSeconds = Number(sub.timestamp) || 0;
+        const tsMs = tsSeconds * 1000 || Date.now();
+        const timeDiffMins = Math.max(0, Math.floor((Date.now() - tsMs) / 60000));
+
+        let timeStr = 'Just now';
+        if (timeDiffMins >= 1 && timeDiffMins < 60) {
+          timeStr = `${timeDiffMins} min${timeDiffMins > 1 ? 's' : ''} ago`;
+        } else if (timeDiffMins >= 60 && timeDiffMins < 1440) {
+          const hours = Math.floor(timeDiffMins / 60);
+          timeStr = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        } else if (timeDiffMins >= 1440) {
+          const days = Math.floor(timeDiffMins / 1440);
+          timeStr = `${days} day${days > 1 ? 's' : ''} ago`;
+        }
+
         liveItems.push({
-          id: `${student.id}-${sub.titleSlug || sub.title}-${sub.timestamp}`,
+          id: `${studentId}-${problemKey}-${sub.timestamp}`,
           studentName: student.name,
           problemTitle: sub.title,
-          difficulty: (sub.title || '').length % 3 === 0 ? 'HARD' : (sub.title || '').length % 2 === 0 ? 'MEDIUM' : 'EASY',
+          difficulty: (sub.difficulty || 'MEDIUM').toUpperCase(),
           timeAgo: timeStr,
-          rawTimestamp: Number(sub.timestamp) || 0,
+          rawTimestamp: tsSeconds,
         });
       });
     });
 
-    if (liveItems.length >= 4) {
-      return liveItems.sort((a, b) => b.rawTimestamp - a.rawTimestamp).slice(0, 6);
-    }
-
-    return defaultActivities;
+    return liveItems.sort((a, b) => b.rawTimestamp - a.rawTimestamp).slice(0, 10);
   }, [students]);
 
   // Compute Milestones & Logs live from real student profiles and deduplicate entries
@@ -293,41 +304,47 @@ export default function LeetCodeStudentDashboard() {
             </div>
 
             <div className="space-y-3">
-              {activityFeed.map((item) => {
-                const diffUpper = (item.difficulty || 'EASY').toUpperCase();
-                const borderColor =
-                  diffUpper === 'HARD' ? 'border-l-rose-500' :
-                  diffUpper === 'MEDIUM' ? 'border-l-orange-500' :
-                  'border-l-teal-500';
+              {activityFeed.length === 0 ? (
+                <div className="p-8 text-center text-sm text-surface-500 bg-surface-50/50 dark:bg-surface-800/20 rounded-xl border border-dashed border-surface-200 dark:border-surface-700">
+                  No recent LeetCode activity recorded yet.
+                </div>
+              ) : (
+                activityFeed.map((item) => {
+                  const diffUpper = (item.difficulty || 'EASY').toUpperCase();
+                  const borderColor =
+                    diffUpper === 'HARD' ? 'border-l-rose-500' :
+                    diffUpper === 'MEDIUM' ? 'border-l-orange-500' :
+                    'border-l-teal-500';
 
-                const badgeBg =
-                  diffUpper === 'HARD' ? 'bg-rose-500 text-white' :
-                  diffUpper === 'MEDIUM' ? 'bg-orange-500 text-white' :
-                  'bg-teal-500 text-white';
+                  const badgeBg =
+                    diffUpper === 'HARD' ? 'bg-rose-500 text-white' :
+                    diffUpper === 'MEDIUM' ? 'bg-orange-500 text-white' :
+                    'bg-teal-500 text-white';
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`p-3.5 rounded-xl border-l-4 ${borderColor} bg-surface-50/60 dark:bg-surface-800/40 border-t border-r border-b border-surface-200/40 dark:border-surface-700/40 flex items-center justify-between gap-3 hover:bg-surface-100/60 dark:hover:bg-surface-800/70 transition-colors`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-surface-800 dark:text-surface-200 truncate">
-                        <span className="font-extrabold text-surface-900 dark:text-white">{item.studentName}</span>
-                        <span className="text-surface-500 dark:text-surface-400 font-normal"> solved </span>
-                        <span className="font-extrabold text-surface-900 dark:text-white">{item.problemTitle}</span>
-                      </p>
-                      <p className="text-xs text-surface-400 mt-0.5 flex items-center gap-1">
-                        <HiOutlineClock className="w-3.5 h-3.5" />
-                        {item.timeAgo}
-                      </p>
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-3.5 rounded-xl border-l-4 ${borderColor} bg-surface-50/60 dark:bg-surface-800/40 border-t border-r border-b border-surface-200/40 dark:border-surface-700/40 flex items-center justify-between gap-3 hover:bg-surface-100/60 dark:hover:bg-surface-800/70 transition-colors`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-surface-800 dark:text-surface-200 truncate">
+                          <span className="font-extrabold text-surface-900 dark:text-white">{item.studentName}</span>
+                          <span className="text-surface-500 dark:text-surface-400 font-normal"> solved </span>
+                          <span className="font-extrabold text-surface-900 dark:text-white">{item.problemTitle}</span>
+                        </p>
+                        <p className="text-xs text-surface-400 mt-0.5 flex items-center gap-1">
+                          <HiOutlineClock className="w-3.5 h-3.5" />
+                          {item.timeAgo}
+                        </p>
+                      </div>
+
+                      <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shrink-0 ${badgeBg}`}>
+                        {diffUpper}
+                      </span>
                     </div>
-
-                    <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shrink-0 ${badgeBg}`}>
-                      {diffUpper}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </Card>
         </div>

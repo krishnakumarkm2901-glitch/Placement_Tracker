@@ -8,6 +8,31 @@ import requests
 from app.services.platform_common import HEADERS, platform_result
 
 
+QUESTION_DIFFICULTY_CACHE = {}
+
+
+def get_question_difficulty(title_slug):
+    """Fetch and cache difficulty for a question slug."""
+    if not title_slug:
+        return "MEDIUM"
+    if title_slug in QUESTION_DIFFICULTY_CACHE:
+        return QUESTION_DIFFICULTY_CACHE[title_slug]
+    try:
+        query = """query questionData($titleSlug: String!) { question(titleSlug: $titleSlug) { difficulty } }"""
+        res = requests.post(
+            "https://leetcode.com/graphql",
+            json={"query": query, "variables": {"titleSlug": title_slug}},
+            headers=HEADERS,
+            timeout=5,
+        )
+        diff = (res.json().get("data") or {}).get("question", {}).get("difficulty") or "Medium"
+        diff_upper = diff.upper()
+        QUESTION_DIFFICULTY_CACHE[title_slug] = diff_upper
+        return diff_upper
+    except Exception:
+        return "MEDIUM"
+
+
 def fetch_leetcode(username):
     query = """query userProfile($username: String!) { allQuestionsCount { difficulty count } matchedUser(username: $username) { username profile { realName ranking reputation starRating userAvatar company school countryName } badges { id displayName icon creationDate } languageProblemCount { languageName problemsSolved } tagProblemCounts { advanced { tagName tagSlug problemsSolved } intermediate { tagName tagSlug problemsSolved } fundamental { tagName tagSlug problemsSolved } } submitStats { acSubmissionNum { difficulty count submissions } totalSubmissionNum { difficulty count submissions } } userCalendar { activeYears streak totalActiveDays submissionCalendar } } recentSubmissionList(username: $username, limit: 20) { title titleSlug timestamp statusDisplay lang } userContestRanking(username: $username) { attendedContestsCount rating globalRanking topPercentage } }"""
     response = requests.post("https://leetcode.com/graphql", json={"query": query, "variables": {"username": username}}, headers=HEADERS, timeout=20)
@@ -42,7 +67,19 @@ def fetch_leetcode(username):
     while cursor in active_dates:
         current_streak += 1
         cursor -= timedelta(days=1)
-    recent = [item for item in (payload.get("recentSubmissionList") or []) if item.get("statusDisplay") == "Accepted"]
+
+    raw_recent = [item for item in (payload.get("recentSubmissionList") or []) if item.get("statusDisplay") == "Accepted"]
+    recent = []
+    seen_slugs = set()
+    for item in raw_recent:
+        slug = item.get("titleSlug") or item.get("title")
+        if slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        item_copy = dict(item)
+        item_copy["difficulty"] = get_question_difficulty(slug)
+        recent.append(item_copy)
+
     metrics = {
         "solved": solved.get("all", 0), "easy": solved.get("easy", 0), "medium": solved.get("medium", 0), "hard": solved.get("hard", 0),
         "ranking": profile.get("ranking"), "contest_rating": round(contest.get("rating") or 0), "contests": contest.get("attendedContestsCount") or 0,
@@ -52,3 +89,4 @@ def fetch_leetcode(username):
     }
     raw = {"avatar_url": profile.get("userAvatar"), "real_name": profile.get("realName"), "company": profile.get("company"), "school": profile.get("school"), "country": profile.get("countryName"), "reputation": profile.get("reputation") or 0, "badges": user.get("badges") or [], "languages": user.get("languageProblemCount") or [], "skills": user.get("tagProblemCounts") or {}, "submission_calendar": submission_calendar, "recent_submissions": recent}
     return platform_result("leetcode", username, f"https://leetcode.com/u/{username}/", metrics, raw)
+
