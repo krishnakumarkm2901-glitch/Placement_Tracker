@@ -1,12 +1,11 @@
 services:
   - type: web
-    name: placement-tracker-api
+    name: placement-tracker
     runtime: python
     region: oregon
     plan: free
-    rootDir: server
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    buildCommand: npm --prefix client install && npm --prefix client run build && pip install -r server/requirements.txt
+    startCommand: gunicorn --chdir server wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     envVars:
       - key: MONGODB_URI
         sync: false
