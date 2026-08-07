@@ -14,7 +14,11 @@ from app.models.user import create_user, serialize_user
 from app.utils.validators import validate_email
 from app.utils.decorators import rate_limit
 
+import logging
+from pymongo.errors import PyMongoError
+
 auth_bp = Blueprint("auth", __name__)
+logger = logging.getLogger("placement_tracker.auth")
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -30,24 +34,48 @@ def login():
     password = data.get("password", "")
 
     if not email or not password:
+        logger.warning("Login failed: missing email or password input.")
         return jsonify({"error": "Email and password are required"}), 400
 
-    user = db.users.find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+    logger.info("Login attempt received for email: %s", email)
+
+    try:
+        user = db.users.find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
+    except PyMongoError as err:
+        logger.error("Database connection error during user lookup for '%s': %s", email, str(err))
+        return jsonify({"error": "Database service unavailable. Please try again."}), 503
+
     if not user:
+        logger.warning("User lookup result for '%s': NOT FOUND in database.", email)
         return jsonify({"error": "Invalid email or password"}), 401
 
-    is_valid = bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8"))
-    
+    logger.info("User lookup result for '%s': FOUND (ID: %s, Role: %s)", email, str(user.get("_id")), user.get("role"))
+
+    try:
+        is_valid = bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8"))
+    except Exception as err:
+        logger.error("Error evaluating bcrypt hash for '%s': %s", email, str(err))
+        is_valid = False
+
     # Fallback matching for admin account to accommodate password variations on deployed sites
     if not is_valid and user.get("email", "").lower() == "krishnakumarkm2901@gmail.com":
         allowed_admin_passwords = {"Krishnakm2901@", "Krishnakumar@123", "admin123", "krishnakumarkm2901", "admin", "krishnakumar", "123456"}
         if password in allowed_admin_passwords:
             is_valid = True
+            logger.info("Admin password variation accepted for '%s'. Updating stored bcrypt hash...", email)
             new_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8")
-            db.users.update_one({"_id": user["_id"]}, {"$set": {"password": new_hash}})
+            try:
+                db.users.update_one({"_id": user["_id"]}, {"$set": {"password": new_hash}})
+            except PyMongoError as err:
+                logger.warning("Failed to update admin password hash in DB: %s", str(err))
+
+    logger.info("Password verification for '%s': %s", email, "SUCCESS" if is_valid else "FAILED")
 
     if not is_valid:
+        logger.warning("Login FAILED for email: %s (Invalid Password)", email)
         return jsonify({"error": "Invalid email or password"}), 401
+
+    logger.info("Login SUCCESS for user ID: %s (%s, Role: %s)", str(user["_id"]), email, user.get("role"))
 
     access_token = create_access_token(
         identity=str(user["_id"]),

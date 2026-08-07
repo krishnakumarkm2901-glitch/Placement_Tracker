@@ -1,7 +1,10 @@
-from pymongo import MongoClient
+import logging
+from pymongo import MongoClient, errors
 
 _mongo_client = None
 _db = None
+
+logger = logging.getLogger("placement_tracker.database")
 
 
 class _MongoDBProxy:
@@ -26,19 +29,50 @@ db = _MongoDBProxy()
 
 def init_db(app):
     global _mongo_client, _db
-    _mongo_client = MongoClient(app.config["MONGODB_URI"])
-    _db = _mongo_client[app.config["MONGODB_DB_NAME"]]
+    uri = app.config.get("MONGODB_URI", "mongodb://localhost:27017/Placement_Tracker")
+    db_name = app.config.get("MONGODB_DB_NAME", "Placement_Tracker")
+
+    logger.info("Connecting to MongoDB database '%s'...", db_name)
+
+    _mongo_client = MongoClient(
+        uri,
+        retryWrites=True,
+        retryReads=True,
+        maxPoolSize=50,
+        connectTimeoutMS=10000,
+        socketTimeoutMS=20000,
+        serverSelectionTimeoutMS=5000,
+    )
+
+    try:
+        # Startup connection ping test
+        _mongo_client.admin.command("ping")
+        logger.info("MongoDB Connected Successfully to '%s'", db_name)
+        print("MongoDB Connected Successfully")
+    except (errors.ConnectionFailure, errors.ServerSelectionTimeoutError, Exception) as err:
+        logger.error("MongoDB Connection Failed: %s", str(err))
+        print(f"MongoDB Connection Failed: {err}")
+        if not app.config.get("DEBUG", False):
+            raise err
+
+    _db = _mongo_client[db_name]
     _create_indexes()
     return _db
 
 
 def _create_indexes():
-    _db.users.create_index("email", unique=True)
-    _db.students.create_index("github_username", unique=True)
-    _db.students.create_index("email", unique=True)
-    _db.students.create_index("department")
-    _db.students.create_index("year")
-    _db.notifications.create_index("created_at")
-    _db.notifications.create_index("read")
-    _db.activity_logs.create_index("created_at")
-    _db.activity_logs.create_index("user_id")
+    if _db is None:
+        return
+    try:
+        _db.users.create_index("email", unique=True)
+        _db.students.create_index("github_username", unique=True)
+        _db.students.create_index("email", unique=True)
+        _db.students.create_index("department")
+        _db.students.create_index("year")
+        _db.notifications.create_index("created_at")
+        _db.notifications.create_index("read")
+        _db.activity_logs.create_index("created_at")
+        _db.activity_logs.create_index("user_id")
+        logger.info("MongoDB indexes verified successfully.")
+    except Exception as err:
+        logger.warning("Note on MongoDB index verification: %s", str(err))

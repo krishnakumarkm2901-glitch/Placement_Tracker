@@ -1,3 +1,4 @@
+import logging
 import os
 from flask import Flask, jsonify, send_file, send_from_directory, request
 from app.config import Config
@@ -9,6 +10,10 @@ from datetime import datetime, timezone
 
 def create_app():
     """Flask application factory."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s",
+    )
     dist_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "client", "dist"))
     app = Flask(__name__, static_folder=dist_folder, static_url_path="")
     app.config.from_object(Config)
