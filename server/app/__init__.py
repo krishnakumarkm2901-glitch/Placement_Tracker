@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_file, send_from_directory, request
 from app.config import Config
 from app.extensions import init_db, init_cors, init_jwt
 from app.database import db
@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 def create_app():
     """Flask application factory."""
     dist_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "client", "dist"))
-    app = Flask(__name__, static_folder=dist_folder if os.path.exists(dist_folder) else None, static_url_path="")
+    app = Flask(__name__, static_folder=dist_folder, static_url_path="")
     app.config.from_object(Config)
 
     # ── Initialize extensions ───────────────────────────────────────
@@ -50,7 +50,7 @@ def create_app():
 
     init_scheduler(app)
 
-    # ── Error handlers ──────────────────────────────────────────────
+    # ── Error handlers & SPA Serving ────────────────────────────────
     @app.errorhandler(500)
     def server_error(e):
         return jsonify({"error": "Internal server error"}), 500
@@ -63,7 +63,7 @@ def create_app():
     def rate_limited(e):
         return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
 
-    # ── Health check ────────────────────────────────────────────────
+    # ── Health & API index ──────────────────────────────────────────
     @app.route("/api/health")
     def health():
         return jsonify({"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()})
@@ -77,27 +77,42 @@ def create_app():
             "timestamp": datetime.now(timezone.utc).isoformat()
         }), 200
 
-    # ── SPA Catch-All Route ─────────────────────────────────────────
-    @app.route("/", defaults={"path": ""})
-    @app.route("/<path:path>")
-    def serve_spa(path):
-        if app.static_folder and os.path.exists(os.path.join(app.static_folder, path)) and path != "":
-            return send_from_directory(app.static_folder, path)
-        
-        if path.startswith("api/"):
+    # ── Explicit Root Route (Serves React UI for /) ────────────────
+    @app.route("/")
+    def root_index():
+        index_file = os.path.join(dist_folder, "index.html")
+        if os.path.exists(index_file):
+            return send_file(index_file), 200
+        return jsonify({
+            "name": "Placement Tracker API",
+            "status": "online",
+            "message": "Backend API is running. Run 'npm --prefix client run build' to generate frontend UI.",
+            "health": "/api/health",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 200
+
+    # ── SPA Catch-All Error Handler (Serves React UI for non-API routes) ──
+    @app.errorhandler(404)
+    def not_found_or_spa(e):
+        path = request.path.lstrip("/")
+        if path.startswith("api/") or path == "api":
             return jsonify({"error": "Resource not found"}), 404
 
-        index_file = os.path.join(app.static_folder, "index.html") if app.static_folder else None
-        if index_file and os.path.exists(index_file):
-            return send_from_directory(app.static_folder, "index.html")
+        target_file = os.path.join(dist_folder, path)
+        if path and os.path.exists(target_file) and not os.path.isdir(target_file):
+            return send_from_directory(dist_folder, path)
+
+        index_file = os.path.join(dist_folder, "index.html")
+        if os.path.exists(index_file):
+            return send_file(index_file), 200
 
         return jsonify({
             "name": "Placement Tracker API",
             "status": "online",
-            "message": "Backend API is running. Build frontend to view interface.",
+            "message": "Backend API is running. Run 'npm --prefix client run build' to generate frontend UI.",
             "health": "/api/health",
             "timestamp": datetime.now(timezone.utc).isoformat()
-        }), 200
+        }), 404
 
     return app
 
