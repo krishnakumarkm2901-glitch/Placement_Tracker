@@ -15,7 +15,7 @@ export const studentsAPI = {
   downloadImportTemplate: () => api.get('/students/import-template', { responseType: 'blob' }),
   update: (id, data) => api.put(`/students/${id}`, data),
   syncPlatforms: (id) => api.post(`/students/${id}/platforms/sync`),
-  delete: (id) => api.delete(`/students/${id}`),
+  delete: (id) => (Array.isArray(id) ? api.post('/students/bulk-delete', { student_ids: id }) : api.delete(`/students/${id}`)),
   getDepartments: () => api.get('/students/departments'),
   getYears: () => api.get('/students/years'),
 };

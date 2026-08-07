@@ -685,6 +685,37 @@ def delete_student(student_id):
     return jsonify({"message": "Student deleted successfully"}), 200
 
 
+@students_bp.route("/bulk-delete", methods=["POST"])
+@admin_required
+def bulk_delete_students():
+    """Delete multiple students and their associated data."""
+    data = request.get_json() or {}
+    student_ids = data.get("student_ids", [])
+    if not student_ids:
+        return jsonify({"error": "No student IDs provided"}), 400
+
+    oids = [parse_object_id(sid) for sid in student_ids if parse_object_id(sid)]
+    if not oids:
+        return jsonify({"error": "Invalid student IDs"}), 400
+
+    ref_list = []
+    for oid in oids:
+        ref_list.extend([oid, str(oid)])
+
+    student_reference = {"$in": ref_list}
+    db.repositories.delete_many({"student_id": student_reference})
+    db.achievements.delete_many({"student_id": student_reference})
+    db.notifications.delete_many({"student_id": student_reference})
+    db.users.delete_many({"student_id": student_reference, "role": "student"})
+    for collection_name in (
+        "github_profiles", "leetcode_profiles", "codechef_profiles", "hackerrank_profiles"
+    ):
+        db[collection_name].delete_many({"student_id": student_reference})
+
+    res = db.students.delete_many({"_id": {"$in": oids}})
+    return jsonify({"message": f"Successfully deleted {res.deleted_count} students"}), 200
+
+
 @students_bp.route("/departments", methods=["GET"])
 @jwt_required()
 def get_departments():
