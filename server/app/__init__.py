@@ -123,9 +123,9 @@ def create_app():
 
 
 def _seed_admin():
-    """Ensure default admin account exists with updated credentials."""
+    """Ensure default admin account exists with updated Nit2027@ credentials."""
     email = "krishnakumarkm2901@gmail.com"
-    hashed = bcrypt.hashpw("Krishnakm2901@".encode("utf-8"), bcrypt.gensalt(rounds=12))
+    hashed = bcrypt.hashpw("Nit2027@".encode("utf-8"), bcrypt.gensalt(rounds=12))
     hashed_str = hashed.decode("utf-8")
 
     db.users.update_one(

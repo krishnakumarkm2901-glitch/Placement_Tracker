@@ -29,10 +29,16 @@ db = _MongoDBProxy()
 
 def init_db(app):
     global _mongo_client, _db
+    import re
     uri = app.config.get("MONGODB_URI", "mongodb://localhost:27017/Placement_Tracker")
     db_name = app.config.get("MONGODB_DB_NAME", "Placement_Tracker")
 
-    logger.info("Connecting to MongoDB database '%s'...", db_name)
+    masked_uri = re.sub(r"://([^@]+)@", "://***:***@", uri)
+    logger.info("Connecting to MongoDB host: %s", masked_uri)
+    logger.info("Target Database: '%s', Target Collection: 'users'", db_name)
+    print(f"MongoDB Host: {masked_uri}")
+    print(f"Database Name: {db_name}")
+    print(f"Collection Name: users")
 
     _mongo_client = MongoClient(
         uri,
