@@ -25,13 +25,14 @@ def login():
     if not data:
         return jsonify({"error": "Request body is required"}), 400
 
+    import re
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    user = db.users.find_one({"email": email})
+    user = db.users.find_one({"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}})
     if not user:
         return jsonify({"error": "Invalid email or password"}), 401
 

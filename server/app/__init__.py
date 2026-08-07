@@ -118,18 +118,25 @@ def create_app():
 
 
 def _seed_admin():
-    """Create default admin account if none exists."""
-    if db.users.count_documents({"role": "admin"}) == 0:
-        hashed = bcrypt.hashpw("Krishnakm2901@".encode("utf-8"), bcrypt.gensalt(rounds=12))
-        db.users.insert_one(
-            {
+    """Ensure default admin account exists with updated credentials."""
+    email = "krishnakumarkm2901@gmail.com"
+    hashed = bcrypt.hashpw("Krishnakm2901@".encode("utf-8"), bcrypt.gensalt(rounds=12))
+    hashed_str = hashed.decode("utf-8")
+
+    db.users.update_one(
+        {"email": email},
+        {
+            "$set": {
                 "name": "Admin",
-                "email": "krishnakumarkm2901@gmail.com",
-                "password": hashed.decode("utf-8"),
+                "email": email,
+                "password": hashed_str,
                 "role": "admin",
+                "updated_at": datetime.now(timezone.utc),
+            },
+            "$setOnInsert": {
                 "avatar": "",
                 "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc),
-            }
-        )
-        # print("✅ Default admin seeded: admin@gitpulse.com / admin123")
+            },
+        },
+        upsert=True,
+    )
