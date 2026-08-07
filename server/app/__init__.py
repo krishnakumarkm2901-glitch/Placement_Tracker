@@ -65,7 +65,18 @@ def create_app():
     def rate_limited(e):
         return jsonify({"error": "Rate limit exceeded. Try again later."}), 429
 
-    # ── Health check ────────────────────────────────────────────────
+    # ── Root & Health check ──────────────────────────────────────────
+    @app.route("/")
+    @app.route("/api")
+    def root():
+        return jsonify({
+            "name": "Placement Tracker API",
+            "status": "online",
+            "message": "Placement Tracker backend service is running successfully.",
+            "health": "/api/health",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }), 200
+
     @app.route("/api/health")
     def health():
         return jsonify({"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()})
