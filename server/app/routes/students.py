@@ -151,7 +151,13 @@ def get_public_platform_students(platform):
     cleanup_orphaned_platform_profiles()
     students = list(db.students.find({"is_active": True}).limit(200))
 
-    if platform in {"leetcode", "codechef", "hackerrank"} and request.args.get("live") == "1":
+    # Automatically trigger background platform sync if any active student has pending or unsynced profiles
+    has_unsynced = any(
+        (s.get("platform_profiles") or {}).get(platform, {}).get("status") != "synced"
+        for s in students
+        if (s.get("platform_usernames") or {}).get(platform) or s.get(f"{platform}_username")
+    )
+    if has_unsynced:
         import threading
         from app.services.sync_service import sync_all_students_for_platform
         threading.Thread(target=sync_all_students_for_platform, args=(platform,), daemon=True).start()
