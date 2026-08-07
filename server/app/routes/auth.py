@@ -22,9 +22,11 @@ logger = logging.getLogger("placement_tracker.auth")
 
 
 @auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/login/", methods=["POST"])
 @rate_limit(max_requests=20, window_seconds=60)
 def login():
     """Authenticate user and return JWT tokens."""
+    logger.info("Incoming HTTP %s request to %s (Matched Endpoint: %s)", request.method, request.url, request.endpoint)
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body is required"}), 400

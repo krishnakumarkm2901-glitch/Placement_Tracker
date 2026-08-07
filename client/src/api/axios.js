@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const RENDER_BACKEND_URL = 'https://placement-tracker-tv3g.onrender.com';
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') ? RENDER_BACKEND_URL : '');
 let sessionToken = null;
 
 export const setAuthToken = (token) => {
