@@ -140,7 +140,8 @@ def get_dashboard_stats():
         profiles = student.get("platform_profiles", {}) or {}
         usernames = student.get("platform_usernames", {}) or {}
 
-        if student.get("github_username"):
+        gh_user = student.get("github_username") or (usernames.get("github") if isinstance(usernames, dict) else "")
+        if gh_user:
             platform_charts["github"].append({
                 "name": name,
                 "repositories": analytics.get("total_repos", 0) or 0,
@@ -148,7 +149,8 @@ def get_dashboard_stats():
                 "contributions": analytics.get("total_contributions", 0) or 0,
             })
 
-        if usernames.get("leetcode"):
+        lc_user = student.get("leetcode_username") or (usernames.get("leetcode") if isinstance(usernames, dict) else "")
+        if lc_user:
             metrics = (profiles.get("leetcode") or {}).get("metrics", {}) or {}
             platform_charts["leetcode"].append({
                 "name": name,
@@ -158,7 +160,8 @@ def get_dashboard_stats():
                 "hard": metrics.get("hard", 0) or 0,
             })
 
-        if usernames.get("codechef"):
+        cc_user = student.get("codechef_username") or (usernames.get("codechef") if isinstance(usernames, dict) else "")
+        if cc_user:
             metrics = (profiles.get("codechef") or {}).get("metrics", {}) or {}
             platform_charts["codechef"].append({
                 "name": name,
@@ -169,7 +172,8 @@ def get_dashboard_stats():
                 "country_rank": metrics.get("country_rank", 0) or 0,
             })
 
-        if usernames.get("hackerrank"):
+        hr_user = student.get("hackerrank_username") or (usernames.get("hackerrank") if isinstance(usernames, dict) else "")
+        if hr_user:
             metrics = (profiles.get("hackerrank") or {}).get("metrics", {}) or {}
             platform_charts["hackerrank"].append({
                 "name": name,

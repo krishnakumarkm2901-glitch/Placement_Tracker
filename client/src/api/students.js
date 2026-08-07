@@ -10,7 +10,7 @@ export const studentsAPI = {
   importExcel: (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/students/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return api.post('/students/import', formData, { headers: { 'Content-Type': undefined } });
   },
   downloadImportTemplate: () => api.get('/students/import-template', { responseType: 'blob' }),
   update: (id, data) => api.put(`/students/${id}`, data),

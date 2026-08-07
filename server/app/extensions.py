@@ -1,3 +1,4 @@
+import re
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
@@ -18,10 +19,11 @@ def init_cors(app):
         origins = "*"
     else:
         origins = [origin.strip() for origin in frontend_url.split(",") if origin.strip()]
-        # Support Vercel deployment origins and localhost
-        origins.append(r"https://.*\.vercel\.app")
-        origins.append(r"http://localhost:.*")
-        origins.append(r"http://127\.0\.0\.1:.*")
+        # Support Vercel deployment origins and localhost with re.compile
+        origins.append(re.compile(r"https://.*\.vercel\.app"))
+        origins.append(re.compile(r"http://localhost:.*"))
+        origins.append(re.compile(r"http://127\.0\.0\.1:.*"))
+
 
     CORS(
         app,

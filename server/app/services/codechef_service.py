@@ -181,16 +181,17 @@ def _strip_html(value):
 
 
 def _parse_recent_activity(username, limit=20):
-    response = requests.get(
-        f"https://www.codechef.com/recent/user?user_handle={username}",
-        headers=HEADERS,
-        timeout=20,
-    )
-    if not response.ok:
-        return []
     try:
+        session = get_http_session()
+        response = session.get(
+            f"https://www.codechef.com/recent/user?user_handle={username}",
+            headers=HEADERS,
+            timeout=3,
+        )
+        if not response.ok:
+            return []
         content = (response.json() or {}).get("content") or ""
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except Exception:
         return []
 
     activities = []
@@ -230,13 +231,39 @@ def _parse_recent_activity(username, limit=20):
     return activities
 
 
+import time
+from app.services.http_session import get_http_session
+
+
 def fetch_codechef(username):
     username = normalize_platform_username(username)
+    if not username:
+        raise ValueError("CodeChef username is empty")
+
     url = f"https://www.codechef.com/users/{username}"
-    response = requests.get(url, headers=HEADERS, timeout=20)
-    if response.status_code == 404:
-        raise ValueError("CodeChef profile not found")
-    response.raise_for_status()
+    session = get_http_session()
+
+    response = None
+    for attempt in range(3):
+        try:
+            response = session.get(url, headers=HEADERS, timeout=20)
+            if response.status_code == 404:
+                raise ValueError("CodeChef profile not found")
+            if response.status_code == 429:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            response.raise_for_status()
+            break
+        except ValueError:
+            raise
+        except Exception as err:
+            if attempt == 2:
+                raise err
+            time.sleep(1.5 * (attempt + 1))
+
+    if not response or not response.ok:
+        raise ValueError("Could not connect to CodeChef profile page")
+
     html = response.text
 
     def search(patterns, default=0):
@@ -252,6 +279,11 @@ def fetch_codechef(username):
         r'([0-9,]+)\s*Rating',
         r'Rating[^\d]*([0-9,]+)',
     ])
+    highest_rating = search([
+        r'Highest Rating[^\d]*([0-9,]+)',
+        r'\(Highest Rating\s*([0-9,]+)\)',
+        r'"highestRating"\s*[:=]\s*"?([0-9,]+)"?',
+    ], default=rating)
     stars = search([
         r'"stars"\s*[:=]\s*"?([0-9,]+)"?',
         r'([0-9,]+)\s*star[s]?',
@@ -279,6 +311,7 @@ def fetch_codechef(username):
 
     metrics = {
         "rating": rating,
+        "highest_rating": max(highest_rating, rating),
         "stars": stars,
         "problems_solved": problems_solved,
         "global_rank": global_rank,
@@ -289,6 +322,11 @@ def fetch_codechef(username):
         **streak,
     }
 
+    avatar_match = re.search(r'<img[^>]*class=["\'][^"\']*user-profile-img[^"\']*["\'][^>]*src=["\']([^"\']+)["\']', html, re.I) or \
+                   re.search(r'<img[^>]*src=["\']([^"\']*(?:user-default|codechef\.com/sites/all/themes|cdn\.codechef\.com)[^"\']*)["\']', html, re.I) or \
+                   re.search(r'"avatar"\s*[:=]\s*"([^"]+)"', html, re.I)
+    avatar_url = avatar_match.group(1) if avatar_match else "https://cdn.codechef.com/sites/all/themes/abstrack/images/user-default-160.png"
+
     if not any(value for key, value in metrics.items() if key not in streak and key not in {"learning_paths", "practice_paths", "contests"}) and username.lower() not in html.lower():
         raise ValueError("CodeChef profile data unavailable")
 
@@ -298,6 +336,7 @@ def fetch_codechef(username):
         url,
         metrics,
         raw={
+            "avatar_url": avatar_url,
             "submission_calendar": submission_calendar,
             "learning_paths": paths["learning_paths"],
             "practice_paths": paths["practice_paths"],
@@ -305,4 +344,5 @@ def fetch_codechef(username):
             "contests": paths["contests"],
             "recent_activity": recent_activity,
         },
+        avatar_url=avatar_url,
     )

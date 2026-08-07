@@ -11,6 +11,9 @@ from app.services.platform_common import HEADERS, platform_result
 QUESTION_DIFFICULTY_CACHE = {}
 
 
+from app.services.http_session import get_http_session, HEADERS
+
+
 def get_question_difficulty(title_slug):
     """Fetch and cache difficulty for a question slug."""
     if not title_slug:
@@ -19,7 +22,8 @@ def get_question_difficulty(title_slug):
         return QUESTION_DIFFICULTY_CACHE[title_slug]
     try:
         query = """query questionData($titleSlug: String!) { question(titleSlug: $titleSlug) { difficulty } }"""
-        res = requests.post(
+        session = get_http_session()
+        res = session.post(
             "https://leetcode.com/graphql",
             json={"query": query, "variables": {"titleSlug": title_slug}},
             headers=HEADERS,
@@ -34,8 +38,13 @@ def get_question_difficulty(title_slug):
 
 
 def fetch_leetcode(username):
+    username = str(username or "").strip()
+    if not username:
+        raise ValueError("LeetCode username is empty")
+
     query = """query userProfile($username: String!) { allQuestionsCount { difficulty count } matchedUser(username: $username) { username profile { realName ranking reputation starRating userAvatar company school countryName } badges { id displayName icon creationDate } languageProblemCount { languageName problemsSolved } tagProblemCounts { advanced { tagName tagSlug problemsSolved } intermediate { tagName tagSlug problemsSolved } fundamental { tagName tagSlug problemsSolved } } submitStats { acSubmissionNum { difficulty count submissions } totalSubmissionNum { difficulty count submissions } } userCalendar { activeYears streak totalActiveDays submissionCalendar } } recentSubmissionList(username: $username, limit: 20) { title titleSlug timestamp statusDisplay lang } userContestRanking(username: $username) { attendedContestsCount rating globalRanking topPercentage } }"""
-    response = requests.post("https://leetcode.com/graphql", json={"query": query, "variables": {"username": username}}, headers=HEADERS, timeout=20)
+    session = get_http_session()
+    response = session.post("https://leetcode.com/graphql", json={"query": query, "variables": {"username": username}}, headers=HEADERS, timeout=20)
     response.raise_for_status()
     payload = response.json().get("data") or {}
     user = payload.get("matchedUser")

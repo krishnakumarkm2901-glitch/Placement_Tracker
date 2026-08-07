@@ -50,7 +50,7 @@ def sync_student_safely(student_id):
 
 
 def sync_all_students():
-    """Sync GitHub and every configured coding platform for all students."""
+    """Sync GitHub and every configured coding platform continuously for all active students until fully synced."""
     global sync_state
 
     if sync_state["is_syncing"]:
@@ -66,46 +66,49 @@ def sync_all_students():
         "errors": [],
     })
 
+    def _sync_student_worker(student):
+        s_id = str(student["_id"])
+        s_name = student.get("name", "")
+        try:
+            if student.get("github_username"):
+                sync_student(s_id)
+            sync_coding_profiles(s_id)
+            return s_name, None
+        except Exception as e:
+            return s_name, str(e)
+
     try:
-        for i, student in enumerate(students):
-            sync_state["current_student"] = student.get("name", "")
-            sync_state["progress"] = i
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            try:
-                sync_student(str(student["_id"]))
-            except Exception as e:
-                db.students.update_one(
-                    {"_id": student["_id"]},
-                    {"$set": {
-                        "sync_status": "failed",
-                        "updated_at": datetime.now(timezone.utc),
-                    }},
-                )
-                sync_state["errors"].append({
-                    "student": student.get("name", ""),
-                    "platform": "github",
-                    "error": str(e),
-                })
+        # Pass 1: High-speed parallel sync across all active students
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(_sync_student_worker, s): s for s in students}
+            completed = 0
+            for future in as_completed(futures):
+                s_name, err = future.result()
+                completed += 1
+                sync_state["progress"] = completed
+                sync_state["current_student"] = s_name
+                if err:
+                    sync_state["errors"].append({"student": s_name, "error": err})
 
-            try:
-                profiles = sync_coding_profiles(str(student["_id"]))
-                for platform, profile in profiles.items():
-                    if profile.get("status") == "failed":
-                        sync_state["errors"].append({
-                            "student": student.get("name", ""),
-                            "platform": platform,
-                            "error": profile.get("error", "Profile sync failed"),
-                        })
-            except Exception as e:
-                sync_state["errors"].append({
-                    "student": student.get("name", ""),
-                    "platform": "coding_platforms",
-                    "error": str(e),
-                })
-
-            # Commit and pull-request searches share GitHub's small public
-            # search quota (10 requests/minute). Each student uses two.
-            time.sleep(1 if github_service.token else 12)
+        # Continuous Pass: Automatically retry any remaining unsynced student profiles
+        for pass_num in range(2):
+            unsynced = list(db.students.find({
+                "is_active": True,
+                "$or": [
+                    {"sync_status": {"$in": ["pending", "failed", "rate_limited"]}},
+                    {"platform_profiles.codechef.status": {"$in": ["pending", "failed", "rate_limited"]}},
+                    {"platform_profiles.leetcode.status": {"$in": ["pending", "failed", "rate_limited"]}},
+                    {"platform_profiles.hackerrank.status": {"$in": ["pending", "failed", "rate_limited"]}},
+                ]
+            }))
+            if not unsynced:
+                break
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                retry_futures = {executor.submit(_sync_student_worker, s): s for s in unsynced}
+                for future in as_completed(retry_futures):
+                    future.result()
 
         sync_state.update({
             "is_syncing": False,
@@ -115,11 +118,10 @@ def sync_all_students():
             "current_student": "",
         })
 
-        # Create notification
         db.notifications.insert_one(
             create_notification(
                 "Sync Completed",
-                f"Processed {len(students)} students with {len(sync_state['errors'])} platform errors.",
+                f"Continuous sync completed for {len(students)} students.",
                 "sync_completed",
             )
         )
@@ -137,8 +139,11 @@ def sync_all_students():
     return sync_state
 
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
 def sync_all_students_for_platform(platform):
-    """Sync only the requested platform for every active student."""
+    """Sync only the requested platform for every active student concurrently."""
     global sync_state
 
     supported_platforms = {"github"} | set(FETCHERS.keys())
@@ -158,32 +163,42 @@ def sync_all_students_for_platform(platform):
         "errors": [],
     })
 
-    try:
-        for i, student in enumerate(students):
-            sync_state["current_student"] = student.get("name", "")
-            sync_state["progress"] = i
-
-            try:
-                if platform == "github":
-                    sync_student(str(student["_id"]))
-                else:
-                    profiles = sync_coding_profiles(str(student["_id"]), platform=platform)
-                    profile = profiles.get(platform, {})
-                    if profile.get("status") == "failed":
-                        sync_state["errors"].append({
-                            "student": student.get("name", ""),
-                            "platform": platform,
-                            "error": profile.get("error", "Profile sync failed"),
-                        })
-            except Exception as e:
-                sync_state["errors"].append({
-                    "student": student.get("name", ""),
-                    "platform": platform,
-                    "error": str(e),
-                })
-
+    def _sync_worker(student):
+        s_id = str(student["_id"])
+        s_name = student.get("name", "")
+        err_entry = None
+        try:
             if platform == "github":
-                time.sleep(1 if github_service.token else 12)
+                sync_student(s_id)
+            else:
+                profiles = sync_coding_profiles(s_id, platform=platform)
+                profile = profiles.get(platform, {})
+                if profile.get("status") in {"failed", "rate_limited"}:
+                    err_entry = {
+                        "student": s_name,
+                        "platform": platform,
+                        "error": profile.get("error", f"{platform} sync status: {profile.get('status')}"),
+                    }
+        except Exception as e:
+            err_entry = {
+                "student": s_name,
+                "platform": platform,
+                "error": str(e),
+            }
+        return s_name, err_entry
+
+    try:
+        max_workers = 20
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_student = {executor.submit(_sync_worker, student): student for student in students}
+            completed_count = 0
+            for future in as_completed(future_to_student):
+                s_name, err_entry = future.result()
+                completed_count += 1
+                sync_state["progress"] = completed_count
+                sync_state["current_student"] = s_name
+                if err_entry:
+                    sync_state["errors"].append(err_entry)
 
         sync_state.update({
             "is_syncing": False,

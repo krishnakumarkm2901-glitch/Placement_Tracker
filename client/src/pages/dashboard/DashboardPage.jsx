@@ -81,24 +81,37 @@ export default function DashboardPage() {
     </div>
 
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      {platformCharts.map((platform) => {
-        const data = dashData?.platform_charts?.[platform.key] || [];
-        return <Card key={platform.key}>
-          <CardHeader title={platform.title} subtitle={platform.subtitle} />
-          {!dashData ? <ChartSkeleton /> : data.length ? <div className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.slice(0, 15)} margin={{ top: 5, right: 5, left: -15, bottom: 35 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" interval={0} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: 8 }} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                {platform.bars.map(([key, label, color]) => <Bar key={key} dataKey={key} name={label} fill={color} radius={[4, 4, 0, 0]} maxBarSize={34} />)}
-              </BarChart>
-            </ResponsiveContainer>
-          </div> : <div className="h-[260px] flex items-center justify-center text-sm text-surface-500">No synced {platform.title.replace(' Activity', '')} profiles available.</div>}
-        </Card>;
-      })}
+      {!dashData ? (
+        <>
+          <Card><ChartSkeleton /></Card>
+          <Card><ChartSkeleton /></Card>
+        </>
+      ) : (
+        platformCharts
+          .filter((platform) => (dashData?.platform_charts?.[platform.key] || []).length > 0)
+          .map((platform) => {
+            const data = dashData?.platform_charts?.[platform.key] || [];
+            return (
+              <Card key={platform.key}>
+                <CardHeader title={platform.title} subtitle={platform.subtitle} />
+                <div className="h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.slice(0, 15)} margin={{ top: 5, right: 5, left: -15, bottom: 35 }}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" interval={0} />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                      <Tooltip contentStyle={{ borderRadius: 8 }} />
+                      <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                      {platform.bars.map(([key, label, color]) => (
+                        <Bar key={key} dataKey={key} name={label} fill={color} radius={[4, 4, 0, 0]} maxBarSize={34} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            );
+          })
+      )}
     </div>
   </div>;
 }

@@ -8,6 +8,9 @@ from datetime import datetime, timezone, timedelta
 from app.config import Config
 
 
+from app.services.http_session import get_http_session
+
+
 class GitHubService:
     """Handles all GitHub API interactions."""
 
@@ -17,7 +20,7 @@ class GitHubService:
         self.token = Config.GITHUB_TOKEN
         self.headers = {
             "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "Placement-Tracker",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         }
         if self.token:
             self.headers["Authorization"] = f"token {self.token}"
@@ -27,7 +30,8 @@ class GitHubService:
     def _get(self, url, params=None):
         """Make a GET request with error handling."""
         try:
-            resp = requests.get(url, headers=self.headers, params=params, timeout=30)
+            session = get_http_session()
+            resp = session.get(url, headers=self.headers, params=params, timeout=30)
             if resp.status_code == 404:
                 return None
             if resp.status_code == 403:

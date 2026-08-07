@@ -84,7 +84,9 @@ export default function PlatformProfileOverviewPage({ platform: platformProp }) 
   const username = platform === 'github' ? student.github_username : student.platform_usernames?.[platform];
   const metrics = platform === 'github' ? student.analytics || {} : profile?.metrics || {};
   const status = platform === 'github' ? student.sync_status : profile?.status || 'pending';
-  const avatar = platform === 'leetcode' ? profile?.raw?.avatar_url : platform === 'hackerrank' ? profile?.raw?.avatar_url || student.avatar_url || student.github_profile?.avatar_url : student.avatar_url || student.github_profile?.avatar_url;
+  const avatar = platform === 'github'
+    ? (student.avatar_url || student.github_profile?.avatar_url)
+    : (profile?.avatar_url || profile?.raw?.avatar_url || profile?.raw?.userAvatar || student.avatar_url || student.github_profile?.avatar_url);
   const backPath = isAdmin ? ({ github: '/github-tracker', leetcode: '/leetcode', codechef: '/codechef', hackerrank: '/hackerrank' }[platform]) : `/platform/${platform}`;
   return <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <div className="flex items-center justify-between mb-5"><Button variant="ghost" icon={HiOutlineArrowLeft} onClick={() => navigate(backPath)} size="sm">Back to {config.name}</Button>{isAdmin && <Button variant="secondary" icon={HiOutlineArrowPath} onClick={() => syncMutation.mutate()} loading={syncMutation.isPending} size="sm">Sync</Button>}</div>

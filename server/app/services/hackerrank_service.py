@@ -47,11 +47,18 @@ def _normalize_badges(badges):
     return normalized
 
 
+from app.services.http_session import get_http_session, HEADERS
+
+
 def fetch_hackerrank(username):
     username = normalize_platform_username(username)
+    if not username:
+        raise ValueError("HackerRank username is empty")
+
+    session = get_http_session()
     base = f"https://www.hackerrank.com/rest/hackers/{username}"
-    # HackerRank retired /profile; the hacker resource itself is the public profile.
-    response = requests.get(base, headers=HEADERS, timeout=20)
+    
+    response = session.get(base, headers=HEADERS, timeout=20)
     if response.status_code == 404:
         raise ValueError("HackerRank profile is not public, has no visible activity, or the username is incorrect")
     response.raise_for_status()
@@ -59,12 +66,12 @@ def fetch_hackerrank(username):
     if not model or model.get("deleted"):
         raise ValueError("HackerRank profile not found")
 
-    badges_response = requests.get(f"{base}/badges", headers=HEADERS, timeout=20)
+    badges_response = session.get(f"{base}/badges", headers=HEADERS, timeout=20)
     badges = (badges_response.json() or {}).get("models", []) if badges_response.ok else []
     badges = _normalize_badges(badges)
 
     certificates = []
-    profile_html_response = requests.get(
+    profile_html_response = session.get(
         f"https://www.hackerrank.com/profile/{username}",
         headers=HEADERS,
         timeout=25,
@@ -73,7 +80,7 @@ def fetch_hackerrank(username):
         certificates = _parse_certificates(profile_html_response.text)
 
     submission_calendar = {}
-    history_response = requests.get(f"{base}/submission_histories", headers=HEADERS, timeout=20)
+    history_response = session.get(f"{base}/submission_histories", headers=HEADERS, timeout=20)
     if history_response.ok:
         try:
             payload = history_response.json() or {}
@@ -82,12 +89,16 @@ def fetch_hackerrank(username):
         except (TypeError, ValueError):
             submission_calendar = {}
 
+    problem_solving_score = sum(int(badge.get("solved") or 0) * 10 + int(badge.get("stars") or 0) * 5 for badge in badges)
+
     metrics = {
+        "problem_solving_score": problem_solving_score,
         "badges": len(badges),
         "certificates": len(certificates),
         "followers": model.get("followers_count") or 0,
         "stars": sum(int(badge.get("stars") or 0) for badge in badges),
         "solved": sum(int(badge.get("solved") or 0) for badge in badges),
+        "skills": len(badges),
     }
     raw = {
         "avatar_url": model.get("avatar"),

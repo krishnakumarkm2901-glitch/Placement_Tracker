@@ -71,7 +71,21 @@ def _create_indexes():
         return
     try:
         _db.users.create_index("email", unique=True)
-        _db.students.create_index("github_username", unique=True)
+        try:
+            index_info = _db.students.index_information()
+            if "github_username_1" in index_info:
+                # Drop legacy index if it doesn't use partial filtering for non-empty usernames
+                opts = index_info["github_username_1"]
+                if not opts.get("partialFilterExpression") and not opts.get("sparse"):
+                    _db.students.drop_index("github_username_1")
+        except Exception:
+            pass
+
+        _db.students.create_index(
+            "github_username",
+            unique=True,
+            partialFilterExpression={"github_username": {"$gt": ""}}
+        )
         _db.students.create_index("email", unique=True)
         _db.students.create_index("department")
         _db.students.create_index("year")

@@ -3,10 +3,7 @@
 from datetime import datetime, timezone
 
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 Placement-Tracker/1.0",
-    "Accept": "application/json,text/html",
-}
+from app.services.http_session import HEADERS, get_http_session
 
 
 def normalize_platform_username(value):
@@ -17,13 +14,16 @@ def normalize_platform_username(value):
     return value.lstrip("@").strip()
 
 
-def platform_result(platform, username, profile_url, metrics, raw=None):
+def platform_result(platform, username, profile_url, metrics, raw=None, avatar_url=None):
+    raw_dict = raw or {}
+    avatar = avatar_url or raw_dict.get("avatar_url") or raw_dict.get("avatar")
     return {
         "platform": platform,
         "username": username,
         "profile_url": profile_url,
+        "avatar_url": avatar,
         "metrics": metrics,
-        "raw": raw or {},
+        "raw": raw_dict,
         "status": "synced",
         "last_synced": datetime.now(timezone.utc).isoformat(),
     }

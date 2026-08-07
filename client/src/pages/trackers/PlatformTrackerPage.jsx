@@ -54,29 +54,57 @@ export default function PlatformTrackerPage({ platform }) {
   const isGitHub = platform === 'github';
   const search = useMemo(() => new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '', [location.search]);
 
+  const { data: syncStatus } = useQuery({
+    queryKey: ['github-sync-status'],
+    queryFn: async () => {
+      const res = await githubAPI.getStatus();
+      return res.data;
+    },
+    staleTime: 10000,
+    refetchInterval: (query) => (query.state.data?.is_syncing ? 1000 : false),
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ['tracker-students', platform],
     queryFn: () => isGitHub
       ? studentsAPI.getAll({ page: 1, limit: 100, sort_by: 'github_score', sort_order: 'desc' })
       : studentsAPI.getPublicPlatform(platform),
     select: (response) => response.data,
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      const cached = queryClient.getQueriesData({ queryKey: ['tracker-students', platform] });
+      for (const [_, val] of cached) {
+        if (val?.data?.students?.length) return val.data;
+      }
+      return undefined;
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchInterval: (query) => (syncStatus?.is_syncing ? 1000 : false),
   });
 
   const students = useMemo(() => {
     return (data?.students || [])
-      .filter((student) => isGitHub || student.platform_usernames?.[platform])
+      .filter((student) => {
+        const u = isGitHub ? student.github_username : (student.platform_usernames?.[platform] || student[`${platform}_username`]);
+        return Boolean(u && String(u).trim());
+      })
       .filter((student) => {
         if (!search) return true;
         const studentName = student.name?.toLowerCase() || '';
-        const username = (isGitHub ? student.github_username : student.platform_usernames?.[platform])?.toLowerCase() || '';
+        const username = (isGitHub ? student.github_username : (student.platform_usernames?.[platform] || student[`${platform}_username`]))?.toLowerCase() || '';
         return studentName.includes(search) || username.includes(search);
       });
   }, [data?.students, isGitHub, platform, search]);
 
   const syncMutation = useMutation({
     mutationFn: () => githubAPI.syncPlatform(platform),
-    onSuccess: () => {
-      toast.success(`${config.name} sync started.`);
+    onSuccess: (res) => {
+      if (res.data?.nothing_to_sync) {
+        toast.info(res.data.message || `Nothing to sync. All ${config.name} profiles are already up to date!`);
+      } else {
+        toast.success(`${config.name} sync started.`);
+      }
       queryClient.invalidateQueries({ queryKey: ['tracker-students', platform] });
     },
     onError: (error) => toast.error(error.response?.data?.error || `Failed to start ${config.name} sync`),
@@ -141,10 +169,13 @@ export default function PlatformTrackerPage({ platform }) {
                   const username = isGitHub ? student.github_username : student.platform_usernames?.[platform];
                   const status = isGitHub ? student.sync_status : profile?.status || 'pending';
                   const detailPath = isGitHub ? `/github-tracker/${student.id}` : `/${platform}/${student.id}`;
+                  const avatar = isGitHub
+                    ? (student.avatar_url || student.github_profile?.avatar_url)
+                    : (profile?.avatar_url || profile?.raw?.avatar_url || profile?.raw?.userAvatar || student.avatar_url);
                   return <tr key={student.id} onClick={() => navigate(detailPath)} className="hover:bg-surface-50 dark:hover:bg-surface-800/40 cursor-pointer">
                     <td className="px-5 py-4">
                       <button type="button" className="flex items-center gap-3 text-left">
-                        <Avatar src={student.avatar_url} name={student.name} size="sm" />
+                        <Avatar src={avatar} name={student.name} size="sm" />
                         <span><span className="block font-medium text-surface-900 dark:text-white">{student.name}</span><span className="text-xs text-surface-400">@{username}</span></span>
                       </button>
                     </td>

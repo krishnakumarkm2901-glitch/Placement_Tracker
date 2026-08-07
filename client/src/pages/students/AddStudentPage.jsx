@@ -51,20 +51,15 @@ export default function AddStudentPage() {
       </Button>
 
       <Card>
-        <CardHeader title="Add GitHub Student" subtitle="Enter a GitHub username and Placement_Tracker will fetch the profile and activity automatically" />
+        <CardHeader title="Add Student" subtitle="Enter platform usernames (GitHub, LeetCode, CodeChef, HackerRank) and Placement_Tracker will fetch profiles and activity automatically" />
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="GitHub Username *"
-              placeholder="krishnakumarkm2901-glitch"
-              helper="Enter the username shown below your name on GitHub. @username and profile URLs also work."
-              error={errors.github_username?.message}
-              {...register('github_username', {
-                required: 'GitHub username is required',
-                setValueAs: (value) => value.trim().replace(/^https?:\/\/(?:www\.)?github\.com\//i, '').replace(/^@/, '').replace(/\/$/, '').split('/')[0],
-                pattern: { value: /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/, message: 'Invalid GitHub username' },
-              })}
+              label="Student Name"
+              placeholder="John Doe"
+              helper="Optional — full name of the student"
+              {...register('name')}
             />
             <Input
               label="Email *"
@@ -76,9 +71,18 @@ export default function AddStudentPage() {
                 pattern: { value: /^\S+@\S+$/, message: 'Invalid email' },
               })}
             />
-            <Input label="LeetCode Username" placeholder="leetcode_username" helper="Optional — public profile username" {...register('leetcode_username')} />
-            <Input label="CodeChef Username" placeholder="codechef_username" helper="Optional — public profile username" {...register('codechef_username')} />
-            <Input label="HackerRank Username" placeholder="hackerrank_username" helper="Optional — public profile username" {...register('hackerrank_username')} />
+            <Input
+              label="GitHub Username"
+              placeholder="octocat"
+              helper="Public GitHub profile username"
+              error={errors.github_username?.message}
+              {...register('github_username', {
+                setValueAs: (value) => (value || '').trim().replace(/^https?:\/\/(?:www\.)?github\.com\//i, '').replace(/^@/, '').replace(/\/$/, '').split('/')[0],
+              })}
+            />
+            <Input label="LeetCode Username" placeholder="leetcode_username" helper="Public LeetCode profile username" {...register('leetcode_username')} />
+            <Input label="CodeChef Username" placeholder="codechef_username" helper="Public CodeChef profile username" {...register('codechef_username')} />
+            <Input label="HackerRank Username" placeholder="hackerrank_username" helper="Public HackerRank profile username" {...register('hackerrank_username')} />
             <Select
               label="Department *"
               placeholder="Select Department"

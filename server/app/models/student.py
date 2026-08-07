@@ -96,13 +96,17 @@ def serialize_student(student):
 
 
 def serialize_student_summary(student):
-    """Lightweight serialization for list views."""
+    """Lightweight fast serialization for list views."""
     if not student:
         return None
-    from app.services.analytics_service import calculate_github_score
-    from app.services.platform_storage import load_platform_data
-    student = load_platform_data(student)
-    github_score, _ = calculate_github_score(str(student["_id"]))
+    github_score = student.get("github_score", 0)
+    if not github_score and "analytics" in student:
+        analytics = student.get("analytics") or {}
+        commits = analytics.get("total_commits", 0)
+        repos = analytics.get("total_repos", 0)
+        contributions = analytics.get("total_contributions", 0)
+        github_score = min(100, int(commits * 0.4 + contributions * 0.4 + repos * 2))
+
     return {
         "id": str(student["_id"]),
         "name": student.get("name", ""),

@@ -8,3 +8,5 @@ requests==2.32.3
 APScheduler==3.11.0
 gunicorn==23.0.0
 dnspython==2.7.0
+openpyxl==3.1.5
+

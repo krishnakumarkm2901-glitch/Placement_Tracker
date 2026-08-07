@@ -26,19 +26,25 @@ def normalize_github_username(value):
 
 
 def validate_student_input(data):
-    """Validate fields supplied when adding a GitHub student."""
+    """Validate fields supplied when adding a student."""
     errors = []
 
     if not data.get("department", "").strip():
         errors.append("Department is required.")
 
-    if not data.get("year"):
+    if not str(data.get("year", "")).strip():
         errors.append("Year is required.")
 
     github_username = normalize_github_username(data.get("github_username", ""))
-    if not github_username:
-        errors.append("GitHub username is required.")
-    elif not validate_github_username(github_username):
+    leetcode_username = sanitize_string(data.get("leetcode_username", ""))
+    codechef_username = sanitize_string(data.get("codechef_username", ""))
+    hackerrank_username = sanitize_string(data.get("hackerrank_username", ""))
+
+    has_any_platform = bool(github_username or leetcode_username or codechef_username or hackerrank_username)
+    if not has_any_platform:
+        errors.append("At least one platform username (GitHub, LeetCode, CodeChef, or HackerRank) is required.")
+
+    if github_username and not validate_github_username(github_username):
         errors.append("Invalid GitHub username format.")
 
     if not data.get("email", "").strip():

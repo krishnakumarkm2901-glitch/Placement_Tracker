@@ -25,13 +25,13 @@ import {
 import { toast } from 'react-toastify';
 
 function PlatformStatus({ row, platform }) {
-  const configured = platform === 'github'
-    ? Boolean(row.github_username)
-    : Boolean(row.platform_usernames?.[platform]);
+  const username = platform === 'github'
+    ? row.github_username
+    : (row.platform_usernames?.[platform] || row[`${platform}_username`]);
+  if (!username || !String(username).trim()) return null;
   const status = platform === 'github'
     ? row.sync_status || 'pending'
     : row.platform_profiles?.[platform]?.status || 'pending';
-  if (!configured) return <Badge variant="default">Not configured</Badge>;
   return <Badge variant={status === 'synced' ? 'success' : status === 'failed' ? 'danger' : 'warning'} dot>{status}</Badge>;
 }
 
@@ -51,6 +51,14 @@ export default function StudentsPage() {
 
   const debouncedSearch = useDebounce(search);
 
+  const { data: syncStatus } = useQuery({
+    queryKey: ['github-sync-status'],
+    queryFn: () => githubAPI.getStatus(),
+    select: (res) => res.data,
+    staleTime: 10000,
+    refetchInterval: (query) => (query.state.data?.is_syncing ? 1000 : false),
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ['students', debouncedSearch, page, department, year, sortBy],
     queryFn: () =>
@@ -64,40 +72,43 @@ export default function StudentsPage() {
         sort_order: sortBy === 'name' ? 'asc' : 'desc',
       }),
     select: (res) => res.data,
-    keepPreviousData: true,
-    // New GitHub users sync in the background. Refresh the list so profile,
-    // score, repository, commit and status values appear as soon as
-    // the server finishes fetching them.
-    refetchInterval: 2000,
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+      const cached = queryClient.getQueriesData({ queryKey: ['students'] });
+      for (const [_, val] of cached) {
+        if (val?.data?.students?.length) return val.data;
+      }
+      return undefined;
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchInterval: () => (syncStatus?.is_syncing ? 1000 : false),
   });
 
   const { data: deptData } = useQuery({
     queryKey: ['departments-list'],
     queryFn: () => studentsAPI.getDepartments(),
     select: (res) => res.data.departments,
+    staleTime: 60000,
   });
 
   const { data: yearsData } = useQuery({
     queryKey: ['years-list'],
     queryFn: () => studentsAPI.getYears(),
     select: (res) => res.data.years,
-  });
-
-  const { data: syncStatus } = useQuery({
-    queryKey: ['github-sync-status'],
-    queryFn: () => githubAPI.getStatus(),
-    select: (res) => res.data,
-    // Keep polling while this page is open so the initial background-thread
-    // race and the eventual completion are both reflected in the table.
-    refetchInterval: 2000,
+    staleTime: 60000,
   });
 
   const [platformSync, setPlatformSync] = useState('github');
 
   const syncMutation = useMutation({
     mutationFn: () => githubAPI.syncAll(),
-    onSuccess: () => {
-      toast.success('All-platform data sync started');
+    onSuccess: (res) => {
+      if (res.data?.nothing_to_sync) {
+        toast.info(res.data.message || 'Nothing to sync. All platform profiles are already up to date!');
+      } else {
+        toast.success('All-platform data sync started');
+      }
       queryClient.invalidateQueries({ queryKey: ['github-sync-status'] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
     },
@@ -106,8 +117,12 @@ export default function StudentsPage() {
 
   const syncPlatformMutation = useMutation({
     mutationFn: (platform) => githubAPI.syncPlatform(platform),
-    onSuccess: (_, platform) => {
-      toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} sync started`);
+    onSuccess: (res, platform) => {
+      if (res.data?.nothing_to_sync) {
+        toast.info(res.data.message || `Nothing to sync. All ${platform} profiles are already up to date!`);
+      } else {
+        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} sync started`);
+      }
       queryClient.invalidateQueries({ queryKey: ['github-sync-status'] });
       queryClient.invalidateQueries({ queryKey: ['students'] });
     },
@@ -128,7 +143,7 @@ export default function StudentsPage() {
         toast.info(result.errors.slice(0, 3).map((item) => `Row ${item.row}: ${item.error}`).join(' | '), { autoClose: 10000 });
       }
     },
-    onError: (error) => toast.error(error.response?.data?.error || 'Excel import failed'),
+    onError: (error) => toast.error(error.response?.data?.error || error.message || 'Excel import failed'),
   });
 
   const deleteMutation = useMutation({
@@ -292,7 +307,7 @@ export default function StudentsPage() {
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-surface-200 dark:border-surface-700"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-surface-200 dark:border-surface-700"
           >
             <Select
               placeholder="All Departments"
@@ -305,16 +320,6 @@ export default function StudentsPage() {
               value={year}
               onChange={(e) => { setYear(e.target.value); setPage(1); }}
               options={(yearsData || []).map((y) => ({ value: y, label: `Year ${y}` }))}
-            />
-            <Select
-              placeholder="Sort By"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              options={[
-                { value: 'created_at', label: 'Date Added' },
-                { value: 'github_score', label: 'GitHub Score' },
-                { value: 'name', label: 'Name' },
-              ]}
             />
             <Button variant="ghost" onClick={() => { setSearch(''); setDepartment(''); setYear(''); setSortBy('name'); setPage(1); }} size="sm">
               Clear Filters
