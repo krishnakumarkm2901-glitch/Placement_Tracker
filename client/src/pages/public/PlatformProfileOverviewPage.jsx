@@ -11,6 +11,8 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/feedback/EmptyState';
 import { ProfileSkeleton } from '../../components/feedback/Skeleton';
+import dailyTasksAPI from '../../api/dailyTasks';
+import DailyTasksCard from '../../components/ui/DailyTasksCard';
 import CodeChefOverview from '../../components/codechef/CodeChefOverview';
 import HackerRankOverview from '../../components/hackerrank/HackerRankOverview';
 import { useAuth } from '../../contexts/AuthContext';
@@ -78,6 +80,13 @@ export default function PlatformProfileOverviewPage({ platform: platformProp }) 
   const Icon = config.icon;
   const { data: student, isLoading } = useQuery({ queryKey: ['public-platform-profile', id], queryFn: () => studentsAPI.getPublicById(id), select: (response) => response.data.student, staleTime: 0, refetchOnMount: 'always' });
   const syncMutation = useMutation({ mutationFn: () => studentsAPI.syncPlatforms(id), onSuccess: () => { toast.success(`${config.name} profile synced`); queryClient.invalidateQueries({ queryKey: ['public-platform-profile', id] }); queryClient.invalidateQueries({ queryKey: ['tracker-students', platform] }); }, onError: (error) => toast.error(error.response?.data?.error || 'Platform sync failed') });
+  const { data: todayTasksData } = useQuery({
+    queryKey: ['daily-tasks-today', platform],
+    queryFn: () => dailyTasksAPI.getToday(platform),
+    enabled: ['leetcode', 'codechef', 'hackerrank'].includes(platform),
+  });
+  const todayTasks = todayTasksData?.data?.task || todayTasksData?.task || todayTasksData?.data;
+
   if (isLoading) return <div className="max-w-7xl mx-auto p-6"><ProfileSkeleton /></div>;
   if (!student) return <div className="max-w-7xl mx-auto p-6"><EmptyState title="Student profile not found" /></div>;
   const profile = platform === 'github' ? student.github_profile || {} : student.platform_profiles?.[platform];
@@ -91,6 +100,9 @@ export default function PlatformProfileOverviewPage({ platform: platformProp }) 
   return <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <div className="flex items-center justify-between mb-5"><Button variant="ghost" icon={HiOutlineArrowLeft} onClick={() => navigate(backPath)} size="sm">Back to {config.name}</Button>{isAdmin && <Button variant="secondary" icon={HiOutlineArrowPath} onClick={() => syncMutation.mutate()} loading={syncMutation.isPending} size="sm">Sync</Button>}</div>
     <Card className="mb-6"><div className="flex flex-col sm:flex-row sm:items-center gap-5"><Avatar src={avatar} name={student.name} size="xl" /><div className="flex-1"><div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold text-surface-900 dark:text-white">{platform === 'leetcode' ? profile?.raw?.real_name || student.name : student.name}</h1><Badge variant={status === 'synced' ? 'success' : status === 'failed' ? 'danger' : 'warning'} dot>{status}</Badge></div><p className="text-surface-500 mt-1">{student.department} · Year {student.year}</p><a href={profile?.profile_url || `https://github.com/${username}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary-500 hover:underline mt-2">@{username}<HiOutlineArrowTopRightOnSquare className="w-4 h-4" /></a></div><div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 flex items-center justify-center"><Icon className="w-7 h-7" /></div></div></Card>
+    {['leetcode', 'codechef', 'hackerrank'].includes(platform) && (
+      <DailyTasksCard platform={platform} date={todayTasks?.date} problems={todayTasks?.problems || []} studentProfile={profile} className="mb-6" />
+    )}
     {status === 'failed' ? <Card><EmptyState icon={Icon} title={`${config.name} profile could not be fetched`} description={profile?.error || 'The profile may be private or the username may be incorrect.'} /></Card> : platform === 'leetcode' ? <LeetCodeOverview profile={profile} metrics={metrics} /> : platform === 'codechef' ? <><CodeChefOverview profile={profile} metrics={metrics} />{profile?.last_synced && <p className="text-xs text-surface-400 mt-5">Last synced {new Date(profile.last_synced).toLocaleString()}</p>}</> : platform === 'hackerrank' ? <><HackerRankOverview profile={profile} username={username} />{profile?.last_synced && <p className="text-xs text-surface-400 mt-5">Last synced {new Date(profile.last_synced).toLocaleString()}</p>}</> : <><h2 className="text-xl font-semibold text-surface-900 dark:text-white mb-4">Overview</h2><div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{config.metrics.map(([label, key]) => <Card key={key}><p className="text-sm text-surface-500">{label}</p><p className="text-2xl font-bold text-surface-900 dark:text-white mt-1">{metrics[key]?.toLocaleString?.() ?? metrics[key] ?? 0}</p></Card>)}</div>{profile?.last_synced && <p className="text-xs text-surface-400 mt-5">Last synced {new Date(profile.last_synced).toLocaleString()}</p>}</>}
   </div>;
 }

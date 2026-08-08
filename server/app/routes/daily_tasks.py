@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 import requests
 from flask_jwt_extended import jwt_required
 from datetime import datetime, timezone
+import re
 from app.utils.decorators import admin_required, rate_limit
 from app.extensions import db
 
@@ -13,6 +14,46 @@ daily_tasks_bp = Blueprint("daily_tasks", __name__)
 def _today_string(dt=None):
     dt = dt or datetime.now(timezone.utc)
     return dt.date().isoformat()
+
+
+HACKERRANK_ALIASES = {
+    'python-if-else': 'py-if-else',
+    'say-hello-world-with-python': 'py-hello-world',
+    'print-function': 'python-print',
+    'arithmetic-operators': 'python-arithmetic-operators',
+    'python-division': 'python-division',
+    'loops': 'python-loops',
+    'write-a-function': 'write-a-function',
+}
+
+def _format_problem(prob, platform, index):
+    if isinstance(prob, str):
+        prob = {"title": prob}
+    title = str(prob.get("title") or prob.get("url") or f"Problem #{index}").strip()
+    url = str(prob.get("url") or "").strip()
+
+    if not url or not url.startswith("http"):
+        p = (platform or "leetcode").lower()
+        if title.startswith("http://") or title.startswith("https://"):
+            url = title
+        elif p == "codechef":
+            clean_slug = re.sub(r'[^a-zA-Z0-9]+', '-', title.lower()).strip('-')
+            code = clean_slug.upper() if ' ' in title else title.upper()
+            url = f"https://www.codechef.com/problems/{code}"
+        elif p == "hackerrank":
+            slug = re.sub(r'[^a-zA-Z0-9]+', '-', title.lower()).strip('-')
+            slug = HACKERRANK_ALIASES.get(slug, slug)
+            url = f"https://www.hackerrank.com/challenges/{slug}/problem"
+        else:
+            slug = re.sub(r'[^a-zA-Z0-9]+', '-', title.lower()).strip('-')
+            url = f"https://leetcode.com/problems/{slug}/"
+
+    return {
+        "id": str(prob.get("id") or index),
+        "title": title,
+        "url": url,
+        "difficulty": prob.get("difficulty")
+    }
 
 
 @daily_tasks_bp.route("/today", methods=["GET"])
@@ -89,10 +130,12 @@ def set_daily_tasks():
     if not platform or not isinstance(problems, list) or len(problems) == 0:
         return jsonify({"error": "Required fields: platform, problems (non-empty list)"}), 400
 
+    formatted_problems = [_format_problem(p, platform, i + 1) for i, p in enumerate(problems[:6])]
+
     doc = {
         "platform": platform,
         "date": date,
-        "problems": problems[:6],
+        "problems": formatted_problems,
         "updated_at": datetime.now(timezone.utc),
     }
 

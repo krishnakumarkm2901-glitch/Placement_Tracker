@@ -183,10 +183,15 @@ def _strip_html(value):
 def _parse_recent_activity(username, limit=20):
     try:
         session = get_http_session()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "X-Requested-With": "XMLHttpRequest",
+        }
         response = session.get(
-            f"https://www.codechef.com/recent/user?user_handle={username}",
-            headers=HEADERS,
-            timeout=3,
+            f"https://www.codechef.com/recent/user?page=0&user_handle={username}",
+            headers=headers,
+            timeout=15,
         )
         if not response.ok:
             return []

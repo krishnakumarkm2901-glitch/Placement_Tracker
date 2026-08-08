@@ -33,7 +33,8 @@ export default function AddStudentPage() {
   const mutation = useMutation({
     mutationFn: (data) => studentsAPI.create(data),
     onSuccess: (response) => {
-      toast.success('GitHub user added. Fetching repositories and commits...');
+      const msg = response.data?.message || 'Student platform data saved. Fetching profiles...';
+      toast.success(msg);
       qc.invalidateQueries(['students']);
       navigate(`/students/${response.data.student.id}`);
     },

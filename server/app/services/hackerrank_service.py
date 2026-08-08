@@ -89,6 +89,26 @@ def fetch_hackerrank(username):
         except (TypeError, ValueError):
             submission_calendar = {}
 
+    recent_challenges = []
+    recent_resp = session.get(f"{base}/recent_challenges?limit=20", headers=HEADERS, timeout=20)
+    if recent_resp.ok:
+        try:
+            recent_data = (recent_resp.json() or {}).get("models", [])
+            for item in recent_data:
+                if isinstance(item, dict):
+                    ch_title = item.get("name") or item.get("ch_slug") or "Challenge"
+                    ch_slug = item.get("ch_slug") or ""
+                    url_path = item.get("url") or f"/challenges/{ch_slug}/problem"
+                    recent_challenges.append({
+                        "title": unescape(str(ch_title)).strip(),
+                        "slug": ch_slug,
+                        "url": f"https://www.hackerrank.com{url_path}" if not url_path.startswith("http") else url_path,
+                        "created_at": item.get("created_at") or item.get("timestamp") or "",
+                        "category": item.get("category_name") or item.get("track_name") or "Problem Solving",
+                    })
+        except Exception:
+            pass
+
     problem_solving_score = sum(int(badge.get("solved") or 0) * 10 + int(badge.get("stars") or 0) * 5 for badge in badges)
 
     metrics = {
@@ -109,5 +129,6 @@ def fetch_hackerrank(username):
         "badges": badges,
         "certificates": certificates,
         "submission_calendar": submission_calendar,
+        "recent_challenges": recent_challenges,
     }
     return platform_result("hackerrank", username, f"https://www.hackerrank.com/profile/{username}", metrics, raw)

@@ -113,10 +113,12 @@ export default function PlatformTrackerPage({ platform }) {
   const { user, isAdmin } = useAuth();
   const [tasksOpen, setTasksOpen] = useState(false);
   const todayDateStr = new Date().toISOString().slice(0, 10);
+  const supportsDailyTasks = ['leetcode', 'codechef', 'hackerrank'].includes(platform);
+
   const { data: todayTasks } = useQuery({
     queryKey: ['daily-tasks', 'today', platform, todayDateStr],
     queryFn: () => dailyTasksAPI.getToday(platform),
-    enabled: platform === 'leetcode',
+    enabled: supportsDailyTasks,
     select: (res) => res.data,
   });
 
@@ -143,7 +145,7 @@ export default function PlatformTrackerPage({ platform }) {
           >
             Sync {config.name}
           </Button>
-          {isAdmin && platform === 'leetcode' && (
+          {isAdmin && supportsDailyTasks && (
             <Button variant="primary" onClick={() => setTasksOpen(true)} size="sm">Edit Today's Tasks</Button>
           )}
         </div>
@@ -191,7 +193,7 @@ export default function PlatformTrackerPage({ platform }) {
         <Card><EmptyState icon={Icon} title={`No ${config.name} profiles found`} description={`No student ${config.name} profiles are available yet.`} /></Card>
       )}
       </div>
-      {isAdmin && platform === 'leetcode' && (
+      {isAdmin && supportsDailyTasks && (
       <DailyTasksModal
         isOpen={tasksOpen}
         onClose={() => setTasksOpen(false)}

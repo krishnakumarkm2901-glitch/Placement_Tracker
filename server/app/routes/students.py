@@ -283,8 +283,59 @@ def add_student():
     email = sanitize_string(data.get("email", "")).lower()
     provided_name = sanitize_string(data.get("name", ""))
 
-    if db.students.find_one({"email": email}):
-        return jsonify({"error": "Email already registered"}), 409
+    existing_student = db.students.find_one({"email": email})
+    if existing_student:
+        student_id_str = str(existing_student["_id"])
+        update_fields = {}
+
+        if provided_name:
+            update_fields["name"] = provided_name
+        if data.get("department"):
+            update_fields["department"] = sanitize_string(data["department"])
+        if data.get("year"):
+            update_fields["year"] = sanitize_string(str(data["year"]))
+
+        platform_usernames = dict(existing_student.get("platform_usernames") or {})
+        if leetcode_username:
+            platform_usernames["leetcode"] = leetcode_username
+            update_fields["leetcode_username"] = leetcode_username
+        if codechef_username:
+            platform_usernames["codechef"] = codechef_username
+            update_fields["codechef_username"] = codechef_username
+        if hackerrank_username:
+            platform_usernames["hackerrank"] = hackerrank_username
+            update_fields["hackerrank_username"] = hackerrank_username
+
+        update_fields["platform_usernames"] = platform_usernames
+
+        if github_username:
+            gh_dup = db.students.find_one({
+                "_id": {"$ne": existing_student["_id"]},
+                "github_username": {"$regex": f"^{re.escape(github_username)}$", "$options": "i"}
+            })
+            if gh_dup:
+                return jsonify({"error": "GitHub username already registered by another student"}), 409
+            update_fields["github_username"] = github_username
+            platform_usernames["github"] = github_username
+
+        update_fields["updated_at"] = datetime.now(timezone.utc)
+
+        db.students.update_one({"_id": existing_student["_id"]}, {"$set": update_fields})
+        updated_student = db.students.find_one({"_id": existing_student["_id"]})
+
+        if github_username:
+            threading.Thread(
+                target=sync_student_safely, args=(student_id_str,), daemon=True
+            ).start()
+
+        threading.Thread(
+            target=sync_coding_profiles, args=(student_id_str,), daemon=True
+        ).start()
+
+        return jsonify({
+            "message": "Student profile updated with platform details; data fetch started",
+            "student": serialize_student(updated_student),
+        }), 200
 
     profile = {}
     if github_username:
@@ -646,8 +697,7 @@ def update_student(student_id):
 
 
 @students_bp.route("/<student_id>/platforms/sync", methods=["POST"])
-@jwt_required()
-@rate_limit(max_requests=10, window_seconds=60)
+@rate_limit(max_requests=15, window_seconds=60)
 def sync_student_platforms(student_id):
     """Refresh all configured competitive-programming profiles."""
     oid = parse_object_id(student_id)
@@ -656,11 +706,14 @@ def sync_student_platforms(student_id):
     student = db.students.find_one({"_id": oid})
     if not student:
         return jsonify({"error": "Student not found"}), 404
-    current_user = db.users.find_one({"_id": ObjectId(get_jwt_identity())})
-    if not current_user or (current_user.get("role") != "admin" and current_user.get("student_id") != oid):
-        return jsonify({"error": "Not authorized"}), 403
+
     profiles = sync_coding_profiles(student_id)
-    return jsonify({"message": "Platform profiles synced", "profiles": profiles}), 200
+    updated_student = db.students.find_one({"_id": oid})
+    return jsonify({
+        "message": "Platform profiles synced successfully",
+        "profiles": profiles,
+        "student": serialize_student(updated_student) if updated_student else None,
+    }), 200
 
 
 @students_bp.route("/<student_id>", methods=["DELETE"])

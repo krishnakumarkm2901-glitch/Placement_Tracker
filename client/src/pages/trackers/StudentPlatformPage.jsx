@@ -15,6 +15,7 @@ import CodeChefOverview from '../../components/codechef/CodeChefOverview';
 import HackerRankOverview from '../../components/hackerrank/HackerRankOverview';
 import StudentDetailPage from '../students/StudentDetailPage';
 import LeetCodeStudentDashboard from './LeetCodeStudentDashboard';
+import RecentActivityCard from '../../components/ui/RecentActivityCard';
 
 const platforms = {
   github: { name: 'GitHub', icon: VscGithubInverted, description: 'Your repositories, commits, and GitHub score.', metrics: [] },
@@ -40,7 +41,7 @@ export default function StudentPlatformPage({ platform }) {
   const { data: todayTasks } = useQuery({
     queryKey: ['daily-tasks', 'today', platform],
     queryFn: () => dailyTasksAPI.getToday(platform),
-    enabled: platform === 'leetcode' && Boolean(platformUsername),
+    enabled: ['leetcode', 'codechef', 'hackerrank'].includes(platform) && Boolean(platformUsername),
     select: (res) => res.data,
   });
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -67,14 +68,23 @@ export default function StudentPlatformPage({ platform }) {
         <Card><EmptyState icon={Icon} title={`${config.name} data could not be synced`} description={platformProfile.error || 'Try syncing the profile again later.'} /></Card>
       ) : student && !isGitHub && platformProfile ? (
         <div className="space-y-5">
-          <Card><h2 className="text-xl font-bold text-surface-900 dark:text-white">{student.name}</h2><a className="text-primary-500 hover:underline" href={platformProfile.profile_url} target="_blank" rel="noopener noreferrer">@{platformUsername}</a>{platformProfile.last_synced && <p className="text-xs text-surface-400 mt-2">Last synced {new Date(platformProfile.last_synced).toLocaleString()}</p>}</Card>
-          {platform === 'codechef' ? (
-            <CodeChefOverview profile={platformProfile} metrics={platformProfile.metrics || {}} />
-          ) : platform === 'hackerrank' ? (
-            <HackerRankOverview profile={platformProfile} username={platformUsername} />
-          ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">{config.metrics.map(([label, key]) => <Card key={key}><p className="text-sm text-surface-500">{label}</p><p className="text-2xl font-bold text-surface-900 dark:text-white mt-1">{platformProfile.metrics?.[key] ?? 0}</p></Card>)}</div>
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
+            <div className="space-y-5">
+              <Card><h2 className="text-xl font-bold text-surface-900 dark:text-white">{student.name}</h2><a className="text-primary-500 hover:underline" href={platformProfile.profile_url} target="_blank" rel="noopener noreferrer">@{platformUsername}</a>{platformProfile.last_synced && <p className="text-xs text-surface-400 mt-2">Last synced {new Date(platformProfile.last_synced).toLocaleString()}</p>}</Card>
+              {platform === 'codechef' ? (
+                <CodeChefOverview profile={platformProfile} metrics={platformProfile.metrics || {}} />
+              ) : platform === 'hackerrank' ? (
+                <HackerRankOverview profile={platformProfile} username={platformUsername} />
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">{config.metrics.map(([label, key]) => <Card key={key}><p className="text-sm text-surface-500">{label}</p><p className="text-2xl font-bold text-surface-900 dark:text-white mt-1">{platformProfile.metrics?.[key] ?? 0}</p></Card>)}</div>
+              )}
+              <RecentActivityCard platform={platform} singleProfile={{ ...platformProfile, name: student.name }} />
+            </div>
+            <div>
+              <DailyTasksCard platform={platform} date={todayTasks?.date} problems={todayTasks?.problems} studentProfile={platformProfile} onOpenHistory={() => setHistoryOpen(true)} />
+            </div>
+          </div>
+          <DailyTasksHistoryModal isOpen={historyOpen} onClose={() => setHistoryOpen(false)} platform={platform} />
         </div>
       ) : student && isGitHub ? (
         <div className="space-y-5">

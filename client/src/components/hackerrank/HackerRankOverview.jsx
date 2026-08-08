@@ -4,6 +4,7 @@ import { FaDatabase, FaCoffee } from 'react-icons/fa';
 import Card from '../ui/Card';
 import Avatar from '../ui/Avatar';
 import SubmissionsHeatMap from '../charts/SubmissionsHeatMap';
+import RecentActivityCard from '../ui/RecentActivityCard';
 
 const COUNTRY_FLAGS = {
   India: '🇮🇳',
@@ -167,6 +168,8 @@ export default function HackerRankOverview({ profile, username }) {
           <SubmissionsHeatMap calendar={raw.submission_calendar} title="Submissions Heat Map" days={185} />
         </Card>
       )}
+
+      <RecentActivityCard platform="hackerrank" singleProfile={{ ...profile, name }} />
     </div>
   );
 }
