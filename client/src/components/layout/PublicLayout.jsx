@@ -4,6 +4,7 @@ import { VscGithubInverted } from 'react-icons/vsc';
 import { SiCodechef, SiHackerrank, SiLeetcode } from 'react-icons/si';
 import { HiOutlineSquares2X2, HiOutlineTrophy, HiOutlineChartBar, HiOutlineMoon, HiOutlineSun, HiOutlineMagnifyingGlass } from 'react-icons/hi2';
 import { useTheme } from '../../contexts/ThemeContext';
+import Footer from './Footer';
 
 const platformLinks = [
   { to: '/platform/github', label: 'GitHub', icon: VscGithubInverted },
@@ -26,7 +27,7 @@ export default function PublicLayout() {
   const ThemeIcon = theme === 'dark' ? HiOutlineSun : HiOutlineMoon;
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
+    <div className="min-h-screen bg-surface-50 dark:bg-surface-950 flex flex-col">
       <header className="sticky top-0 z-30 bg-white/90 dark:bg-surface-900/90 backdrop-blur-xl border-b border-surface-200 dark:border-surface-700">
         <div className="max-w-7xl mx-auto min-h-16 px-4 sm:px-6 py-2 flex flex-col lg:flex-row lg:items-center justify-between gap-2 lg:gap-4">
           <nav className="flex items-center gap-1 overflow-x-auto max-w-full" aria-label="Coding platforms">
@@ -83,7 +84,8 @@ export default function PublicLayout() {
           </nav>
         </div>
       </header>
-      <main><Outlet /></main>
+      <main className="flex-1"><Outlet /></main>
+      <Footer />
     </div>
   );
 }
