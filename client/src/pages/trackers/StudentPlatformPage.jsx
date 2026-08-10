@@ -10,7 +10,7 @@ import { useState } from 'react';
 import Card from '../../components/ui/Card';
 import Avatar from '../../components/ui/Avatar';
 import EmptyState from '../../components/feedback/EmptyState';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import CodeChefOverview from '../../components/codechef/CodeChefOverview';
 import HackerRankOverview from '../../components/hackerrank/HackerRankOverview';
 import StudentDetailPage from '../students/StudentDetailPage';
@@ -62,7 +62,7 @@ export default function StudentPlatformPage({ platform }) {
       </div>
       {!user?.student_id ? (
         <Card><EmptyState icon={Icon} title={`${config.name} profile not linked`} description={`Ask an administrator to link your student account with your ${config.name} username.`} /></Card>
-      ) : isLoading ? <TableSkeleton rows={4} /> : student && !isGitHub && !platformUsername ? (
+      ) : isLoading ? <LoadingSpinner message={`Loading ${config.name} profile...`} /> : student && !isGitHub && !platformUsername ? (
         <Card><EmptyState icon={Icon} title={`${config.name} profile not connected`} description={`Ask an administrator to add your ${config.name} username.`} /></Card>
       ) : student && !isGitHub && platformProfile?.status === 'failed' ? (
         <Card><EmptyState icon={Icon} title={`${config.name} data could not be synced`} description={platformProfile.error || 'Try syncing the profile again later.'} /></Card>

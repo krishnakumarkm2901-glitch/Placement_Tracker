@@ -16,7 +16,7 @@ import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/feedback/EmptyState';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 
 const platforms = {
   github: {
@@ -152,7 +152,7 @@ export default function PlatformTrackerPage({ platform }) {
       </div>
 
       {isLoading ? (
-        <TableSkeleton rows={8} />
+        <LoadingSpinner message={`Loading ${config.name} student list...`} />
       ) : students.length ? (
         <Card padding={false} className="overflow-hidden">
           <div className="overflow-x-auto">

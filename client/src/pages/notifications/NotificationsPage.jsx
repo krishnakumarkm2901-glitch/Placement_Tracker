@@ -4,7 +4,7 @@ import notificationsAPI from '../../api/notifications';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/feedback/EmptyState';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import {
   HiOutlineBellAlert, HiOutlineCheckCircle, HiOutlineTrash, HiOutlineCheck,
 } from 'react-icons/hi2';
@@ -69,7 +69,7 @@ export default function NotificationsPage() {
       </div>
 
       {isLoading ? (
-        <TableSkeleton rows={5} />
+        <LoadingSpinner message="Loading notifications..." />
       ) : notifications.length === 0 ? (
         <EmptyState
           icon={HiOutlineBellAlert}

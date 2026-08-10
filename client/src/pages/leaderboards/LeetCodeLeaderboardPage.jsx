@@ -8,7 +8,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 
 const modes = [
   ['overall', 'Overall'], ['today', 'Today'], ['week', 'This Week'], ['month', 'This Month'],
@@ -72,7 +72,7 @@ export default function LeetCodeLeaderboardPage({ adminView = false, embedded = 
       <div className={`flex flex-wrap gap-2 ${hideFilters ? '' : 'mt-5'}`}>{modes.map(([key, label]) => <button key={key} type="button" onClick={() => setMode(key)} className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${mode === key ? 'bg-teal-500 border-teal-500 text-white' : 'border-surface-200 dark:border-surface-700 text-surface-500 hover:border-teal-400'}`}>{label}</button>)}</div>
     </Card>
 
-    {isLoading ? <TableSkeleton rows={8} /> : <Card padding={false} className="overflow-hidden">
+    {isLoading ? <LoadingSpinner message="Loading LeetCode leaderboard..." /> : <Card padding={false} className="overflow-hidden">
       <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-left">
         <thead className="bg-surface-50 dark:bg-surface-800/70 text-xs uppercase tracking-wider text-surface-500"><tr><th className="px-5 py-4">Rank</th><th className="px-5 py-4">Name</th><th className="px-4 py-4 text-center">Total</th><th className="px-4 py-4 text-center">Easy</th><th className="px-4 py-4 text-center">Medium</th><th className="px-4 py-4 text-center">Hard</th><th className="px-4 py-4 text-center">Acceptance</th><th className="px-4 py-4 text-center">Streak Points</th><th className="px-4 py-4 text-center">Today&apos;s Solves</th><th className="px-5 py-4 text-center">Last Updated</th></tr></thead>
         <tbody className="divide-y divide-surface-200 dark:divide-surface-700">{students.map((student, index) => <tr key={student.id} onClick={() => navigate(profilePath(student.id))} className="hover:bg-surface-50 dark:hover:bg-surface-800/40 cursor-pointer">

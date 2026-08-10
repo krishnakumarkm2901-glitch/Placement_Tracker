@@ -11,7 +11,7 @@ import Button from '../../components/ui/Button';
 import Select from '../../components/ui/Select';
 import DataTable from '../../components/tables/DataTable';
 import Badge from '../../components/ui/Badge';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 
 const platforms = [
   { key: 'github', name: 'GitHub', icon: VscGithubInverted, columns: [['Repositories', 'repositories'], ['Commits', 'commits'], ['Contributions', 'contributions'], ['Streak', 'streak']] },
@@ -49,6 +49,6 @@ export default function ReportsPage() {
     <div className="flex flex-wrap gap-2 mb-6 border-b border-surface-200 dark:border-surface-700 pb-4">{platforms.map((item) => { const Icon = item.icon; return <button key={item.key} type="button" onClick={() => setPlatform(item.key)} className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold ${platform === item.key ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300' : 'text-surface-500 hover:bg-surface-100 dark:hover:bg-surface-800'}`}><Icon className="w-5 h-5" />{item.name}</button>; })}</div>
     <Card className="mb-6"><div className="flex flex-col lg:flex-row gap-3 lg:items-end"><div className="grid sm:grid-cols-2 gap-3 flex-1"><Select label="Department" placeholder="All Departments" value={department} onChange={(event) => setDepartment(event.target.value)} options={(departments || []).map((value) => ({ value, label: value }))} /><Select label="Year" placeholder="All Years" value={year} onChange={(event) => setYear(event.target.value)} options={(years || []).map((value) => ({ value: String(value), label: `Year ${value}` }))} /></div><div className="flex gap-2"><Button variant="secondary" onClick={() => { setDepartment(''); setYear(''); }}>Clear</Button><Button icon={HiOutlineDocumentArrowDown} onClick={exportReport}>Export {selected.name}</Button></div></div></Card>
     <div className="flex items-center justify-between mb-3"><h2 className="text-xl font-bold text-surface-900 dark:text-white">{selected.name} Report</h2><span className="text-sm text-surface-500">{data?.length || 0} students</span></div>
-    {isLoading ? <TableSkeleton rows={8} /> : <DataTable columns={columns} data={data || []} />}
+    {isLoading ? <LoadingSpinner message={`Loading ${selected.name} report...`} /> : <DataTable columns={columns} data={data || []} />}
   </div>;
 }

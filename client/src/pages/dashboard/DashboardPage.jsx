@@ -8,7 +8,7 @@ import githubAPI from '../../api/github';
 import Card, { CardHeader } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
-import { ChartSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 
 const platformCharts = [
   { key: 'github', title: 'GitHub Activity', subtitle: 'Repositories, commits, and contributions', bars: [['repositories', 'Repositories', '#0969da'], ['commits', 'Commits', '#8250df'], ['contributions', 'Contributions', '#1f883d']] },
@@ -82,10 +82,9 @@ export default function DashboardPage() {
 
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       {!dashData ? (
-        <>
-          <Card><ChartSkeleton /></Card>
-          <Card><ChartSkeleton /></Card>
-        </>
+        <div className="col-span-full">
+          <LoadingSpinner message="Loading dashboard statistics..." />
+        </div>
       ) : (
         platformCharts
           .filter((platform) => (dashData?.platform_charts?.[platform.key] || []).length > 0)
