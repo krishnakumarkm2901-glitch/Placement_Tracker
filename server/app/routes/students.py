@@ -700,7 +700,7 @@ def update_student(student_id):
 @students_bp.route("/<student_id>/platforms/sync", methods=["POST"])
 @rate_limit(max_requests=15, window_seconds=60)
 def sync_student_platforms(student_id):
-    """Refresh all configured competitive-programming profiles."""
+    """Refresh configured platform profile(s)."""
     oid = parse_object_id(student_id)
     if not oid:
         return jsonify({"error": "Invalid student ID"}), 400
@@ -708,7 +708,21 @@ def sync_student_platforms(student_id):
     if not student:
         return jsonify({"error": "Student not found"}), 404
 
-    profiles = sync_coding_profiles(student_id)
+    req_data = request.get_json(silent=True) or {}
+    platform = request.args.get("platform") or req_data.get("platform")
+
+    if platform == "github":
+        from app.services.sync_service import sync_student_safely
+        sync_student_safely(student_id)
+        profiles = student.get("platform_profiles", {})
+    else:
+        profiles = sync_coding_profiles(student_id, platform=platform)
+
+    # Invalidate public caches so user immediately sees fresh synced profile
+    from app.cache import cache_invalidate
+    cache_invalidate("public_")
+    cache_invalidate("analytics_")
+
     updated_student = db.students.find_one({"_id": oid})
     return jsonify({
         "message": "Platform profiles synced successfully",

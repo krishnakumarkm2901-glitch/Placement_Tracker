@@ -79,7 +79,7 @@ export default function PlatformProfileOverviewPage({ platform: platformProp }) 
   const config = configs[platform] || configs.github;
   const Icon = config.icon;
   const { data: student, isLoading } = useQuery({ queryKey: ['public-platform-profile', id], queryFn: () => studentsAPI.getPublicById(id), select: (response) => response.data.student, staleTime: 0, refetchOnMount: 'always' });
-  const syncMutation = useMutation({ mutationFn: () => studentsAPI.syncPlatforms(id), onSuccess: () => { toast.success(`${config.name} profile synced`); queryClient.invalidateQueries({ queryKey: ['public-platform-profile', id] }); queryClient.invalidateQueries({ queryKey: ['tracker-students', platform] }); }, onError: (error) => toast.error(error.response?.data?.error || 'Platform sync failed') });
+  const syncMutation = useMutation({ mutationFn: () => studentsAPI.syncPlatforms(id, platform), onSuccess: () => { toast.success(`${config.name} profile synced`); queryClient.invalidateQueries({ queryKey: ['public-platform-profile', id] }); queryClient.invalidateQueries({ queryKey: ['tracker-students', platform] }); queryClient.invalidateQueries({ queryKey: ['public-platform', platform] }); queryClient.invalidateQueries({ queryKey: ['public-students'] }); }, onError: (error) => toast.error(error.response?.data?.error || 'Platform sync failed') });
   const { data: todayTasksData } = useQuery({
     queryKey: ['daily-tasks-today', platform],
     queryFn: () => dailyTasksAPI.getToday(platform),
