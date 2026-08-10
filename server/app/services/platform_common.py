@@ -7,10 +7,18 @@ from app.services.http_session import HEADERS, get_http_session
 
 
 def normalize_platform_username(value):
-    """Accept a username, @username, or full profile URL."""
-    value = str(value or "").strip().rstrip("/")
+    """Accept a username, @username, or full profile URL (including query parameters and trailing slashes)."""
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    # Strip query parameters or anchor fragments
+    value = value.split("?")[0].split("#")[0].rstrip("/")
     if "/" in value:
-        value = value.rsplit("/", 1)[-1]
+        parts = [p for p in value.split("/") if p]
+        if parts:
+            value = parts[-1]
+            if value.lower() in {"profile", "users", "u", "members"} and len(parts) > 1:
+                value = parts[-2]
     return value.lstrip("@").strip()
 
 

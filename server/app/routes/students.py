@@ -408,14 +408,34 @@ def download_import_template():
 
 
 ALIASES = {
-    "github_username": ["github_username", "github", "github_user", "github_id"],
-    "leetcode_username": ["leetcode_username", "leetcode", "leetcode_user", "leetcode_id"],
-    "codechef_username": ["codechef_username", "codechef", "codechef_user", "codechef_id", "gfg_user"],
-    "hackerrank_username": ["hackerrank_username", "hackerrank", "hackerrank_user", "hackerrank_id"],
-    "email": ["email", "email_address", "student_email"],
-    "department": ["department", "dept", "branch"],
-    "year": ["year", "batch", "year_of_study"],
-    "name": ["name", "student_name", "full_name"],
+    "github_username": [
+        "github_username", "github", "github_user", "github_id", "github_link",
+        "github_profile", "github_profile_link", "github_url", "github_handle",
+        "git_hub", "git_hub_username", "git_hub_user", "git_hub_id", "git_hub_handle"
+    ],
+    "leetcode_username": [
+        "leetcode_username", "leetcode", "leetcode_user", "leetcode_id", "leetcode_link",
+        "leetcode_profile", "leetcode_profile_link", "leetcode_url", "leetcode_handle",
+        "leet_code", "leet_code_username", "leet_code_user", "leet_code_id", "leet_code_handle",
+        "lc_username", "lc_id", "lc", "lc_user", "lc_handle"
+    ],
+    "codechef_username": [
+        "codechef_username", "codechef", "codechef_user", "codechef_id", "codechef_link",
+        "codechef_profile", "codechef_profile_link", "codechef_url", "codechef_handle",
+        "code_chef", "code_chef_username", "code_chef_user", "code_chef_id", "code_chef_handle",
+        "gfg_user", "cc_username", "cc_id", "cc", "cc_user", "cc_handle"
+    ],
+    "hackerrank_username": [
+        "hackerrank_username", "hackerrank", "hackerrank_user", "hackerrank_id", "hackerrank_link",
+        "hackerrank_profile", "hackerrank_profile_link", "hackerrank_url", "hackerrank_handle",
+        "hacker_rank", "hacker_rank_username", "hacker_rank_user", "hacker_rank_id",
+        "hacker_rank_link", "hacker_rank_profile", "hacker_rank_url", "hacker_rank_handle",
+        "hr_username", "hr_id", "hr_user", "hr_handle", "hr", "hr_link", "hr_profile", "hr_url"
+    ],
+    "email": ["email", "email_address", "student_email", "mail", "mail_id", "e_mail"],
+    "department": ["department", "dept", "branch", "stream", "course"],
+    "year": ["year", "batch", "year_of_study", "current_year", "study_year", "class_year"],
+    "name": ["name", "student_name", "full_name", "candidate_name", "name_of_student"],
 }
 
 
