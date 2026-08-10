@@ -57,9 +57,9 @@ def get_http_session():
     if _session is None:
         _session = PacedSession()
         retry_strategy = Retry(
-            total=4,
-            backoff_factor=2,
-            status_forcelist=[429, 500, 502, 503, 504],
+            total=2,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504],
             allowed_methods=["GET", "POST"],
         )
         adapter = HTTPAdapter(

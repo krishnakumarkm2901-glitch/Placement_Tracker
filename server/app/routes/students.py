@@ -150,22 +150,13 @@ def get_public_platform_students(platform):
     if platform not in {"github", "leetcode", "codechef", "hackerrank"}:
         return jsonify({"error": "Unsupported platform"}), 400
 
+    from app.services.platform_storage import load_platform_data
     students = list(db.students.find({"is_active": True}).limit(200))
-
-    # Automatically trigger background platform sync if any active student has pending or unsynced profiles
-    has_unsynced = any(
-        (s.get("platform_profiles") or {}).get(platform, {}).get("status") != "synced"
-        for s in students
-        if (s.get("platform_usernames") or {}).get(platform) or s.get(f"{platform}_username")
-    )
-    if has_unsynced:
-        import threading
-        from app.services.sync_service import sync_all_students_for_platform
-        threading.Thread(target=sync_all_students_for_platform, args=(platform,), daemon=True).start()
+    hydrated_students = [load_platform_data(s) for s in students]
 
     return jsonify({
         "platform": platform,
-        "students": [serialize_student_summary(item) for item in students],
+        "students": [serialize_student_summary(item) for item in hydrated_students],
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }), 200
 

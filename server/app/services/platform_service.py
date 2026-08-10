@@ -38,8 +38,8 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
         )
 
         old_profile = current_profiles.get(platform_name)
-        if old_profile and old_profile.get("status") == "synced" and ("429" in str(exc) or "rate" in str(exc).lower()):
-            # Preserve existing synced data on rate-limiting
+        if old_profile and old_profile.get("status") == "synced":
+            # Preserve existing synced data on transient error
             return platform_name, old_profile, str(exc)
 
         is_rate_limit = "429" in str(exc) or "rate" in str(exc).lower()

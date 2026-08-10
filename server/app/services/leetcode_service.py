@@ -86,7 +86,7 @@ def fetch_leetcode(username):
             continue
         seen_slugs.add(slug)
         item_copy = dict(item)
-        item_copy["difficulty"] = get_question_difficulty(slug)
+        item_copy["difficulty"] = QUESTION_DIFFICULTY_CACHE.get(slug, "MEDIUM")
         recent.append(item_copy)
 
     metrics = {
