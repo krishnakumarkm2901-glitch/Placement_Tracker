@@ -43,4 +43,16 @@ api.interceptors.response.use(
   }
 );
 
+// Keep-alive ping to prevent Render free tier cold starts (every 10 min)
+if (typeof window !== 'undefined' && API_URL) {
+  const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
+  const pingHealth = () => {
+    fetch(`${API_URL}/api/health`, { method: 'GET', mode: 'cors' }).catch(() => {});
+  };
+  // Initial ping on app load
+  pingHealth();
+  setInterval(pingHealth, KEEP_ALIVE_INTERVAL);
+}
+
 export default api;
+

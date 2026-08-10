@@ -5,6 +5,7 @@ from flask_jwt_extended import jwt_required
 from app.extensions import db
 from app.models.student import serialize_student_summary
 from app.utils.decorators import rate_limit
+from app.cache import cached_response
 
 leaderboards_bp = Blueprint("leaderboards", __name__)
 
@@ -12,6 +13,7 @@ leaderboards_bp = Blueprint("leaderboards", __name__)
 @leaderboards_bp.route("", methods=["GET"])
 @jwt_required()
 @rate_limit()
+@cached_response(ttl=120, prefix="leaderboard")
 def get_leaderboard():
     """Get overall leaderboard with filters."""
     limit = min(int(request.args.get("limit", 50)), 100)
@@ -36,7 +38,11 @@ def get_leaderboard():
     if year:
         query["year"] = year
 
-    students = list(db.students.find(query))
+    students = list(
+        db.students.find(query)
+        .sort(sort_field, -1)
+        .limit(limit)
+    )
     entries = [serialize_student_summary(student) for student in students]
     response_fields = {
         "github_score": "github_score",

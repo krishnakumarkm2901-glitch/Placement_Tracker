@@ -66,10 +66,16 @@ def serialize_student(student):
     """Serialize student for JSON response."""
     if not student:
         return None
-    from app.services.analytics_service import calculate_github_score
-    from app.services.platform_storage import load_platform_data
-    student = load_platform_data(student)
-    github_score, scores = calculate_github_score(str(student["_id"]))
+    # Only load platform data from separate collections if not already embedded
+    if not student.get("platform_profiles"):
+        from app.services.platform_storage import load_platform_data
+        student = load_platform_data(student)
+    # Use pre-computed score if available; only recalculate if missing
+    github_score = student.get("github_score")
+    scores = student.get("scores")
+    if github_score is None or not scores:
+        from app.services.analytics_service import calculate_github_score
+        github_score, scores = calculate_github_score(str(student["_id"]))
     return {
         "id": str(student["_id"]),
         "name": student.get("name", ""),

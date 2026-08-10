@@ -12,7 +12,7 @@ from app.utils.helpers import get_pagination_params, parse_object_id
 from app.services.github_service import github_service
 from app.services.sync_service import sync_student_safely
 from app.services.platform_service import normalize_platform_username, sync_coding_profiles
-from app.services.platform_storage import cleanup_orphaned_platform_profiles
+from app.cache import cached_response
 from datetime import datetime, timezone
 import threading
 import re
@@ -103,6 +103,7 @@ def _read_xlsx_rows(upload):
 
 @students_bp.route("/public", methods=["GET"])
 @rate_limit()
+@cached_response(ttl=60, prefix="public_students")
 def get_public_students():
     """Public read-only student summaries for the live GitHub portal."""
     students = list(
@@ -143,12 +144,12 @@ def get_public_student(student_id):
 
 @students_bp.route("/public/platform/<platform>", methods=["GET"])
 @rate_limit()
+@cached_response(ttl=60, prefix="public_platform")
 def get_public_platform_students(platform):
     """Return platform metrics instantly from database."""
     if platform not in {"github", "leetcode", "codechef", "hackerrank"}:
         return jsonify({"error": "Unsupported platform"}), 400
 
-    cleanup_orphaned_platform_profiles()
     students = list(db.students.find({"is_active": True}).limit(200))
 
     # Automatically trigger background platform sync if any active student has pending or unsynced profiles

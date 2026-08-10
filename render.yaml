@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     buildCommand: npm --prefix client install && npm --prefix client run build && pip install -r server/requirements.txt
-    startCommand: gunicorn --chdir server wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    startCommand: gunicorn --chdir server wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 2 --timeout 120 --preload
     envVars:
       - key: MONGODB_URI
         sync: false

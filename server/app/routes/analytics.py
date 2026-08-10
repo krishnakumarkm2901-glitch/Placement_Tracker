@@ -3,6 +3,7 @@
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required
 from app.utils.decorators import rate_limit
+from app.cache import cached_response
 from app.services.analytics_service import (
     get_dashboard_stats,
     get_department_stats,
@@ -16,6 +17,7 @@ analytics_bp = Blueprint("analytics", __name__)
 @analytics_bp.route("/dashboard", methods=["GET"])
 @jwt_required()
 @rate_limit()
+@cached_response(ttl=60, prefix="analytics_dashboard")
 def dashboard():
     """Get dashboard statistics."""
     stats = get_dashboard_stats()
@@ -25,6 +27,7 @@ def dashboard():
 @analytics_bp.route("/departments", methods=["GET"])
 @jwt_required()
 @rate_limit()
+@cached_response(ttl=120, prefix="analytics_departments")
 def departments():
     """Get department-wise analytics."""
     data = get_department_stats()
@@ -34,6 +37,7 @@ def departments():
 @analytics_bp.route("/languages", methods=["GET"])
 @jwt_required()
 @rate_limit()
+@cached_response(ttl=120, prefix="analytics_languages")
 def languages():
     """Get language distribution."""
     data = get_language_stats()
@@ -43,7 +47,9 @@ def languages():
 @analytics_bp.route("/contributions", methods=["GET"])
 @jwt_required()
 @rate_limit()
+@cached_response(ttl=120, prefix="analytics_contributions")
 def contributions():
     """Get contribution trends."""
     data = get_contribution_trends()
     return jsonify({"trends": data}), 200
+

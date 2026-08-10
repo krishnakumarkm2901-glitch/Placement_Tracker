@@ -44,10 +44,12 @@ def init_db(app):
         uri,
         retryWrites=True,
         retryReads=True,
-        maxPoolSize=50,
+        maxPoolSize=10,
+        minPoolSize=2,
         connectTimeoutMS=10000,
         socketTimeoutMS=20000,
         serverSelectionTimeoutMS=5000,
+        compressors="zstd,snappy,zlib",
     )
 
     try:

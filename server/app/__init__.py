@@ -1,6 +1,7 @@
 import logging
 import os
 from flask import Flask, jsonify, send_file, send_from_directory, request
+from flask_compress import Compress
 from app.config import Config
 from app.extensions import init_db, init_cors, init_jwt
 from app.database import db
@@ -19,6 +20,12 @@ def create_app():
     app.config.from_object(Config)
 
     # ── Initialize extensions ───────────────────────────────────────
+    Compress(app)
+    app.config['COMPRESS_MIMETYPES'] = [
+        'application/json', 'text/html', 'text/css',
+        'text/xml', 'application/javascript', 'text/javascript',
+    ]
+    app.config['COMPRESS_MIN_SIZE'] = 256
     init_cors(app)
     init_jwt(app)
     init_db(app)

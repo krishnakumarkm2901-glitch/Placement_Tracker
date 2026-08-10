@@ -66,12 +66,24 @@ def initialize_platform_collections():
         db[collection_name].create_index("student_id", unique=True)
         db[collection_name].create_index("username")
     cleanup_orphaned_platform_profiles()
+
+    # Bulk-fetch existing profile student_ids to avoid N individual find_one() calls
+    existing_github_ids = set(
+        doc["student_id"] for doc in db.github_profiles.find({}, {"student_id": 1})
+    )
+    existing_platform_ids = {}
+    for platform in ("leetcode", "codechef", "hackerrank"):
+        existing_platform_ids[platform] = set(
+            doc["student_id"] for doc in db[COLLECTIONS[platform]].find({}, {"student_id": 1})
+        )
+
     for student in db.students.find({}):
         student_id = student["_id"]
-        if (student.get("github_profile") or student.get("analytics")) and not db.github_profiles.find_one({"student_id": student_id}):
+        if (student.get("github_profile") or student.get("analytics")) and student_id not in existing_github_ids:
             save_platform_profile(student_id, "github", student.get("github_profile", {}), student.get("github_username", ""), student.get("analytics", {}))
         profiles = student.get("platform_profiles", {}) or {}
         usernames = student.get("platform_usernames", {}) or {}
         for platform in ("leetcode", "codechef", "hackerrank"):
-            if profiles.get(platform) and not db[COLLECTIONS[platform]].find_one({"student_id": student_id}):
+            if profiles.get(platform) and student_id not in existing_platform_ids.get(platform, set()):
                 save_platform_profile(student_id, platform, profiles[platform], usernames.get(platform, ""))
+

@@ -55,85 +55,96 @@ def calculate_github_score(student_id):
 
 
 def get_dashboard_stats():
-    """Aggregate dashboard statistics."""
+    """Aggregate dashboard statistics using a single $facet pipeline."""
+    from app.cache import cache_get, cache_set
     from app.models.student import serialize_student_summary
 
-    student_documents = list(db.students.find({}))
-    student_summaries = [serialize_student_summary(student) for student in student_documents]
-    total_students = db.students.count_documents({})
-    active_students = db.students.count_documents({"is_active": True})
+    CACHE_KEY = "dashboard_stats"
+    cached = cache_get(CACHE_KEY)
+    if cached is not None:
+        return cached
 
-    pipeline_repos = [{"$group": {"_id": None, "total": {"$sum": "$analytics.total_repos"}}}]
-    total_repos_result = list(db.students.aggregate(pipeline_repos))
-    total_repos = total_repos_result[0]["total"] if total_repos_result else 0
-
-    pipeline_commits = [{"$group": {"_id": None, "total": {"$sum": "$analytics.total_commits"}}}]
-    total_commits_result = list(db.students.aggregate(pipeline_commits))
-    total_commits = total_commits_result[0]["total"] if total_commits_result else 0
-
-    pipeline_contributions = [{"$group": {"_id": None, "total": {"$sum": "$analytics.total_contributions"}}}]
-    total_contributions_result = list(db.students.aggregate(pipeline_contributions))
-    total_contributions = total_contributions_result[0]["total"] if total_contributions_result else 0
-
-    avg_score = round(
-        sum(student.get("github_score", 0) for student in student_summaries) / len(student_summaries), 1
-    ) if student_summaries else 0
-
-    pipeline_avg_streak = [{"$group": {"_id": None, "avg": {"$avg": "$analytics.current_streak"}}}]
-    avg_streak_result = list(db.students.aggregate(pipeline_avg_streak))
-    avg_streak = round(avg_streak_result[0]["avg"], 1) if avg_streak_result and avg_streak_result[0]["avg"] else 0
-
-    # Synced today
     from datetime import datetime, timezone, timedelta
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    synced_today = db.students.count_documents({"last_synced": {"$gte": today_start}})
-
-    # Inactive (no sync in 7 days or never synced)
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    inactive = db.students.count_documents({
-        "$or": [
-            {"last_synced": None},
-            {"last_synced": {"$lt": week_ago}},
-        ]
-    })
 
-    # Most active department
-    pipeline_dept = [
-        {"$group": {"_id": "$department", "avg_score": {"$avg": "$github_score"}, "count": {"$sum": 1}}},
-        {"$sort": {"avg_score": -1}},
-        {"$limit": 1},
+    # Single $facet pipeline replaces 7 separate aggregations
+    pipeline = [
+        {"$facet": {
+            "totals": [{"$group": {
+                "_id": None,
+                "total_students": {"$sum": 1},
+                "active_students": {"$sum": {"$cond": [{"$eq": ["$is_active", True]}, 1, 0]}},
+                "total_repos": {"$sum": "$analytics.total_repos"},
+                "total_commits": {"$sum": "$analytics.total_commits"},
+                "total_contributions": {"$sum": "$analytics.total_contributions"},
+                "avg_score": {"$avg": "$github_score"},
+                "avg_streak": {"$avg": "$analytics.current_streak"},
+            }}],
+            "synced_today": [
+                {"$match": {"last_synced": {"$gte": today_start}}},
+                {"$count": "count"},
+            ],
+            "inactive": [
+                {"$match": {"$or": [
+                    {"last_synced": None},
+                    {"last_synced": {"$lt": week_ago}},
+                ]}},
+                {"$count": "count"},
+            ],
+            "top_dept": [
+                {"$group": {"_id": "$department", "avg_score": {"$avg": "$github_score"}, "count": {"$sum": 1}}},
+                {"$sort": {"avg_score": -1}},
+                {"$limit": 1},
+            ],
+            "top_contributor": [
+                {"$sort": {"github_score": -1}},
+                {"$limit": 1},
+                {"$project": {"name": 1, "github_username": 1, "github_score": 1, "github_profile.avatar_url": 1}},
+            ],
+        }},
     ]
-    dept_result = list(db.students.aggregate(pipeline_dept))
-    most_active_dept = dept_result[0]["_id"] if dept_result else "N/A"
 
-    # Most used language
-    pipeline_lang = [
-        {"$unwind": {"path": "$analytics.languages", "preserveNullAndEmptyArrays": False}},
-    ]
-    # Simpler approach: count from students
-    all_students = db.students.find({}, {"analytics.most_used_language": 1})
+    facet_result = list(db.students.aggregate(pipeline))
+    facet = facet_result[0] if facet_result else {}
+
+    totals = facet.get("totals", [{}])[0] if facet.get("totals") else {}
+    synced_today = facet.get("synced_today", [{}])[0].get("count", 0) if facet.get("synced_today") else 0
+    inactive = facet.get("inactive", [{}])[0].get("count", 0) if facet.get("inactive") else 0
+    top_dept_result = facet.get("top_dept", [])
+    top_result = facet.get("top_contributor", [])
+
+    # Most used language — lightweight query with projection
     lang_counts = {}
-    for s in all_students:
+    for s in db.students.find({}, {"analytics.most_used_language": 1}):
         lang = s.get("analytics", {}).get("most_used_language", "")
         if lang:
             lang_counts[lang] = lang_counts.get(lang, 0) + 1
     most_used_lang = max(lang_counts, key=lang_counts.get) if lang_counts else "N/A"
 
-    # Top contributor
-    top = max(student_summaries, key=lambda student: student.get("github_score", 0), default=None)
-    top_contributor = {
-        "name": top.get("name", "N/A"),
-        "github_username": top.get("github_username", ""),
-        "score": top.get("github_score", 0),
-        "avatar": top.get("avatar_url", ""),
-    } if top else None
+    top_contributor = None
+    if top_result:
+        t = top_result[0]
+        top_contributor = {
+            "name": t.get("name", "N/A"),
+            "github_username": t.get("github_username", ""),
+            "score": t.get("github_score", 0),
+            "avatar": t.get("github_profile", {}).get("avatar_url", ""),
+        }
 
-    platform_charts = {
-        "github": [],
-        "leetcode": [],
-        "codechef": [],
-        "hackerrank": [],
-    }
+    # Platform charts — single query with projection for needed fields only
+    student_documents = list(db.students.find(
+        {},
+        {
+            "name": 1, "github_username": 1,
+            "analytics.total_repos": 1, "analytics.total_commits": 1,
+            "analytics.total_contributions": 1,
+            "platform_profiles": 1, "platform_usernames": 1,
+            "leetcode_username": 1, "codechef_username": 1, "hackerrank_username": 1,
+        }
+    ))
+
+    platform_charts = {"github": [], "leetcode": [], "codechef": [], "hackerrank": []}
     for student in student_documents:
         name = student.get("name", "Student")
         analytics = student.get("analytics", {}) or {}
@@ -182,21 +193,24 @@ def get_dashboard_stats():
                 "followers": metrics.get("followers", 0) or 0,
             })
 
-    return {
-        "total_students": total_students,
-        "active_students": active_students,
-        "total_repos": total_repos,
-        "total_commits": total_commits,
-        "total_contributions": total_contributions,
-        "avg_score": avg_score,
-        "avg_streak": avg_streak,
+    result = {
+        "total_students": totals.get("total_students", 0),
+        "active_students": totals.get("active_students", 0),
+        "total_repos": totals.get("total_repos", 0),
+        "total_commits": totals.get("total_commits", 0),
+        "total_contributions": totals.get("total_contributions", 0),
+        "avg_score": round(totals.get("avg_score", 0) or 0, 1),
+        "avg_streak": round(totals.get("avg_streak", 0) or 0, 1),
         "synced_today": synced_today,
         "inactive_students": inactive,
-        "most_active_department": most_active_dept,
+        "most_active_department": top_dept_result[0]["_id"] if top_dept_result else "N/A",
         "most_used_language": most_used_lang,
         "top_contributor": top_contributor,
         "platform_charts": platform_charts,
     }
+
+    cache_set(CACHE_KEY, result, ttl=60)
+    return result
 
 
 def get_department_stats():
@@ -230,6 +244,12 @@ def get_department_stats():
 
 def get_language_stats():
     """Get language distribution across all students."""
+    from app.cache import cache_get, cache_set
+    CACHE_KEY = "language_stats"
+    cached = cache_get(CACHE_KEY)
+    if cached is not None:
+        return cached
+
     combined = {}
     for repo in db.repositories.find({}, {"languages": 1, "language": 1, "size": 1}):
         langs = repo.get("languages") or {}
@@ -250,14 +270,22 @@ def get_language_stats():
                     combined[lang] = combined.get(lang, 0) + bytes_count
 
     total = sum(combined.values()) or 1
-    return [
+    result = [
         {"language": lang, "bytes": count, "percentage": round((count / total) * 100, 1)}
         for lang, count in sorted(combined.items(), key=lambda x: x[1], reverse=True)[:15]
     ]
+    cache_set(CACHE_KEY, result, ttl=120)
+    return result
 
 
 def get_contribution_trends():
     """Get monthly contribution trends."""
+    from app.cache import cache_get, cache_set
+    CACHE_KEY = "contribution_trends"
+    cached = cache_get(CACHE_KEY)
+    if cached is not None:
+        return cached
+
     students = db.students.find({}, {"analytics.contribution_data": 1})
     monthly = {}
     for s in students:
@@ -266,7 +294,10 @@ def get_contribution_trends():
             if month:
                 monthly[month] = monthly.get(month, 0) + day.get("count", 0)
 
-    return [
+    result = [
         {"month": m, "contributions": c}
         for m, c in sorted(monthly.items())[-12:]
     ]
+    cache_set(CACHE_KEY, result, ttl=120)
+    return result
+
