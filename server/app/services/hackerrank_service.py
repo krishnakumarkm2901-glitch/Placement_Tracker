@@ -58,7 +58,7 @@ def fetch_hackerrank(username):
     session = get_http_session()
     base = f"https://www.hackerrank.com/rest/hackers/{username}"
     
-    response = session.get(base, headers=HEADERS, timeout=20)
+    response = session.get(base, headers=HEADERS, timeout=6)
     if response.status_code == 404:
         raise ValueError("HackerRank profile is not public, has no visible activity, or the username is incorrect")
     response.raise_for_status()
@@ -66,7 +66,7 @@ def fetch_hackerrank(username):
     if not model or model.get("deleted"):
         raise ValueError("HackerRank profile not found")
 
-    badges_response = session.get(f"{base}/badges", headers=HEADERS, timeout=20)
+    badges_response = session.get(f"{base}/badges", headers=HEADERS, timeout=6)
     badges = (badges_response.json() or {}).get("models", []) if badges_response.ok else []
     badges = _normalize_badges(badges)
 
@@ -74,13 +74,13 @@ def fetch_hackerrank(username):
     profile_html_response = session.get(
         f"https://www.hackerrank.com/profile/{username}",
         headers=HEADERS,
-        timeout=25,
+        timeout=6,
     )
     if profile_html_response.ok:
         certificates = _parse_certificates(profile_html_response.text)
 
     submission_calendar = {}
-    history_response = session.get(f"{base}/submission_histories", headers=HEADERS, timeout=20)
+    history_response = session.get(f"{base}/submission_histories", headers=HEADERS, timeout=6)
     if history_response.ok:
         try:
             payload = history_response.json() or {}
