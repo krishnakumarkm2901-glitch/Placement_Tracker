@@ -16,7 +16,7 @@ import DailyTasksHistoryModal from '../../components/ui/DailyTasksHistoryModal';
 import LeetCodeChallengeCard from '../../components/ui/LeetCodeChallengeCard';
 import Select from '../../components/ui/Select';
 import EmptyState from '../../components/feedback/EmptyState';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import LeetCodeStudentDashboard from '../trackers/LeetCodeStudentDashboard';
 
 const configs = {
@@ -109,7 +109,7 @@ export default function PublicPlatformPage({ platform }) {
 
   return <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <div className="flex items-center gap-3 mb-7"><div className="w-11 h-11 rounded-xl bg-primary-100 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 flex items-center justify-center"><Icon className="w-6 h-6" /></div><div><h1 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white flex items-center gap-2">{mode === 'leaderboard' && <HiOutlineTrophy className="w-7 h-7 text-amber-500" />}{config.name} {mode === 'leaderboard' ? 'Leaderboard' : mode === 'compare' ? 'Comparison' : 'Dashboard'}</h1><p className="text-surface-500">{mode === 'compare' ? `Compare two students using ${config.name} activity.` : `Latest public ${config.name} activity for tracked students.`}</p></div></div>
-    {isLoading ? <TableSkeleton rows={6} /> : !profiles.length ? <Card><EmptyState icon={Icon} title={`No ${config.name} profiles yet`} description={`Add students' ${config.name} usernames in the admin panel to fetch their public activity.`} /></Card> : mode === 'compare' ? <div className="space-y-6">
+    {isLoading ? <LoadingSpinner message={`Loading ${config.name} dashboard...`} /> : !profiles.length ? <Card><EmptyState icon={Icon} title={`No ${config.name} profiles yet`} description={`Add students' ${config.name} usernames in the admin panel to fetch their public activity.`} /></Card> : mode === 'compare' ? <div className="space-y-6">
       <Card><div className="flex items-center gap-3 mb-5"><HiOutlineArrowsRightLeft className="w-7 h-7 text-primary-500" /><div><h2 className="text-xl font-bold text-surface-900 dark:text-white">Compare {config.name} Profiles</h2><p className="text-sm text-surface-500">Choose two students for a side-by-side comparison.</p></div></div>
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 mb-4">
           <Select label="Filter Department" placeholder="All Departments" value={department} onChange={(event) => { setDepartment(event.target.value); setFirstId(''); setSecondId(''); }} options={departments.map((value) => ({ value, label: value }))} />

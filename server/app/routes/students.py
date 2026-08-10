@@ -106,19 +106,22 @@ def _read_xlsx_rows(upload):
 @cached_response(ttl=60, prefix="public_students")
 def get_public_students():
     """Public read-only student summaries for the live GitHub portal."""
+    from app.services.platform_storage import load_platform_data_bulk
     students = list(
         db.students.find({"is_active": True})
         .sort("github_score", -1)
         .limit(200)
     )
+    hydrated = load_platform_data_bulk(students)
     return jsonify({
-        "students": [serialize_student_summary(student) for student in students],
+        "students": [serialize_student_summary(student) for student in hydrated],
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }), 200
 
 
 @students_bp.route("/public/<student_id>", methods=["GET"])
 @rate_limit()
+@cached_response(ttl=30, prefix="public_student_detail")
 def get_public_student(student_id):
     """Public read-only GitHub analytics for one active student."""
     oid = parse_object_id(student_id)
@@ -150,9 +153,9 @@ def get_public_platform_students(platform):
     if platform not in {"github", "leetcode", "codechef", "hackerrank"}:
         return jsonify({"error": "Unsupported platform"}), 400
 
-    from app.services.platform_storage import load_platform_data
+    from app.services.platform_storage import load_platform_data_bulk
     students = list(db.students.find({"is_active": True}).limit(200))
-    hydrated_students = [load_platform_data(s) for s in students]
+    hydrated_students = load_platform_data_bulk(students)
 
     return jsonify({
         "platform": platform,

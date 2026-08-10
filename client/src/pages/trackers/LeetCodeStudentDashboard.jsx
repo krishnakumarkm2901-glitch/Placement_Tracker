@@ -14,7 +14,7 @@ import dailyTasksAPI from '../../api/dailyTasks';
 import Avatar from '../../components/ui/Avatar';
 import Card from '../../components/ui/Card';
 import DailyTasksHistoryModal from '../../components/ui/DailyTasksHistoryModal';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 
 export default function LeetCodeStudentDashboard() {
   const navigate = useNavigate();
@@ -204,8 +204,8 @@ export default function LeetCodeStudentDashboard() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-        <TableSkeleton rows={6} />
+      <div className="max-w-7xl mx-auto p-4 sm:p-6">
+        <LoadingSpinner message="Loading LeetCode stats & leaderboard..." />
       </div>
     );
   }

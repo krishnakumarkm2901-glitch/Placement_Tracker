@@ -10,7 +10,7 @@ import Avatar from '../../components/ui/Avatar';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/feedback/EmptyState';
-import { ProfileSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import dailyTasksAPI from '../../api/dailyTasks';
 import DailyTasksCard from '../../components/ui/DailyTasksCard';
 import CodeChefOverview from '../../components/codechef/CodeChefOverview';
@@ -87,7 +87,7 @@ export default function PlatformProfileOverviewPage({ platform: platformProp }) 
   });
   const todayTasks = todayTasksData?.data?.task || todayTasksData?.task || todayTasksData?.data;
 
-  if (isLoading) return <div className="max-w-7xl mx-auto p-6"><ProfileSkeleton /></div>;
+  if (isLoading) return <div className="max-w-7xl mx-auto p-6"><LoadingSpinner message={`Loading ${config.name} profile...`} /></div>;
   if (!student) return <div className="max-w-7xl mx-auto p-6"><EmptyState title="Student profile not found" /></div>;
   const profile = platform === 'github' ? student.github_profile || {} : student.platform_profiles?.[platform];
   const username = platform === 'github' ? student.github_username : student.platform_usernames?.[platform];

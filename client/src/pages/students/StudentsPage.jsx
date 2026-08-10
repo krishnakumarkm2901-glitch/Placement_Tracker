@@ -10,7 +10,7 @@ import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Badge from '../../components/ui/Badge';
 import Avatar from '../../components/ui/Avatar';
-import { TableSkeleton } from '../../components/feedback/Skeleton';
+import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import EmptyState from '../../components/feedback/EmptyState';
 import { useDebounce } from '../../hooks/useDebounce';
 import {
@@ -331,7 +331,7 @@ export default function StudentsPage() {
 
       {/* Table */}
       {isLoading ? (
-        <TableSkeleton rows={8} />
+        <LoadingSpinner message="Loading student records..." />
       ) : data?.students?.length ? (
         <DataTable
           columns={columns}

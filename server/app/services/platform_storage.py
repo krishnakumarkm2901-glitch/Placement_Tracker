@@ -60,6 +60,43 @@ def load_platform_data(student):
     return student
 
 
+def load_platform_data_bulk(students):
+    """Hydrate API-compatible fields for a list of students using 4 bulk queries total."""
+    if not students:
+        return []
+
+    student_id_map = {}
+    valid_references = []
+    for s in students:
+        s_id = s.get("_id")
+        if s_id:
+            student_id_map[s_id] = s
+            student_id_map[str(s_id)] = s
+            valid_references.extend([s_id, str(s_id)])
+
+    if not valid_references:
+        return students
+
+    # Bulk query 1: github_profiles
+    for gh in db.github_profiles.find({"student_id": {"$in": valid_references}}):
+        target = student_id_map.get(gh.get("student_id"))
+        if target:
+            target["github_profile"] = gh.get("profile", {})
+            target["analytics"] = gh.get("analytics", target.get("analytics", {}))
+
+    # Bulk queries 2, 3, 4: competitive programming profiles
+    for platform in ("leetcode", "codechef", "hackerrank"):
+        coll = COLLECTIONS[platform]
+        for pd in db[coll].find({"student_id": {"$in": valid_references}}):
+            target = student_id_map.get(pd.get("student_id"))
+            if target:
+                profiles = dict(target.get("platform_profiles", {}) or {})
+                profiles[platform] = pd.get("profile", {})
+                target["platform_profiles"] = profiles
+
+    return students
+
+
 def initialize_platform_collections():
     """Create indexes and migrate existing embedded profiles safely."""
     for collection_name in COLLECTIONS.values():
