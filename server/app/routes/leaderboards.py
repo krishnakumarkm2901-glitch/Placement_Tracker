@@ -29,7 +29,6 @@ def get_leaderboard():
         "contributions": "analytics.total_contributions",
         "stars": "analytics.total_stars",
     }
-
     sort_field = allowed_sorts.get(sort_by, "github_score")
 
     query = {"is_active": True}
