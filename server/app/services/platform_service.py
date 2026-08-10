@@ -33,8 +33,8 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
         return platform_name, profile, None
     except Exception as exc:
         timestamp = datetime.now(timezone.utc).isoformat()
-        logger.error(
-            f"[{timestamp}] Platform sync failed | Student ID: {student_id} | Platform: {platform_name} | Error: {exc}"
+        logger.warning(
+            f"[{timestamp}] Platform sync failed | Student ID: {student_id} | Platform: {platform_name} | Username: {username} | Error: {exc}"
         )
 
         old_profile = current_profiles.get(platform_name)
@@ -43,7 +43,8 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
             return platform_name, old_profile, str(exc)
 
         is_rate_limit = "429" in str(exc) or "rate" in str(exc).lower()
-        status = "rate_limited" if is_rate_limit else ("not_found" if "not found" in str(exc).lower() else "failed")
+        is_invalid = "invalid" in str(exc).lower() or "format" in str(exc).lower() or " " in str(username)
+        status = "rate_limited" if is_rate_limit else ("invalid_username" if is_invalid else ("not_found" if "not found" in str(exc).lower() else "failed"))
         failed_profile = {
             "platform": platform_name,
             "username": username,

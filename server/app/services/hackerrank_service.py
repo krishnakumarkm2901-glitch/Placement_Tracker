@@ -1,11 +1,15 @@
 """HackerRank public profile integration."""
 
+import logging
 import re
 from html import unescape
 
 import requests
 
-from app.services.platform_common import HEADERS, normalize_platform_username, platform_result
+from app.services.platform_common import HEADERS, is_valid_username, normalize_platform_username, platform_result
+from app.services.http_session import get_http_session
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_certificates(html):
@@ -47,24 +51,40 @@ def _normalize_badges(badges):
     return normalized
 
 
-from app.services.http_session import get_http_session, HEADERS
-
-
 def fetch_hackerrank(username):
     username = normalize_platform_username(username)
     if not username:
         raise ValueError("HackerRank username is empty")
+    if not is_valid_username(username):
+        raise ValueError(
+            f"Invalid HackerRank username format: '{username}'. Usernames cannot contain spaces or special characters."
+        )
 
     session = get_http_session()
     base = f"https://www.hackerrank.com/rest/hackers/{username}"
-    
-    response = session.get(base, headers=HEADERS, timeout=6)
+
+    try:
+        response = session.get(base, headers=HEADERS, timeout=6)
+    except requests.exceptions.RequestException as err:
+        logger.warning(
+            f"[HackerRank] Connection error | Username: {username} | Error: {err}"
+        )
+        raise ValueError(f"Could not connect to HackerRank API for username '{username}': {err}")
+
     if response.status_code == 404:
-        raise ValueError("HackerRank profile is not public, has no visible activity, or the username is incorrect")
+        raise ValueError(f"HackerRank profile '{username}' not found or is private")
+    if response.status_code == 429:
+        raise ValueError(f"HackerRank rate limit exceeded (429) for username '{username}'")
+    if response.status_code >= 500:
+        logger.warning(
+            f"[HackerRank] Server returned HTTP {response.status_code} | Username: {username}"
+        )
+        raise ValueError(f"HackerRank server error (HTTP {response.status_code}) for username '{username}'")
+
     response.raise_for_status()
     model = (response.json() or {}).get("model")
     if not model or model.get("deleted"):
-        raise ValueError("HackerRank profile not found")
+        raise ValueError(f"HackerRank profile '{username}' not found")
 
     badges_response = session.get(f"{base}/badges", headers=HEADERS, timeout=6)
     badges = (badges_response.json() or {}).get("models", []) if badges_response.ok else []

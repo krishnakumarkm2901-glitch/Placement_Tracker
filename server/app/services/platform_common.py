@@ -22,6 +22,21 @@ def normalize_platform_username(value):
     return value.lstrip("@").strip()
 
 
+import re
+
+USERNAME_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]{1,100}$")
+
+
+def is_valid_username(username):
+    """Return True if username is valid format (no spaces, control chars, or invalid symbols)."""
+    if not username or not isinstance(username, str):
+        return False
+    username_str = username.strip()
+    if " " in username_str or "%20" in username_str:
+        return False
+    return bool(USERNAME_REGEX.match(username_str))
+
+
 def platform_result(platform, username, profile_url, metrics, raw=None, avatar_url=None):
     raw_dict = raw or {}
     avatar = avatar_url or raw_dict.get("avatar_url") or raw_dict.get("avatar")
