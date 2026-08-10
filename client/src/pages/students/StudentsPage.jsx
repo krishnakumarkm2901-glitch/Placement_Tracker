@@ -147,13 +147,14 @@ export default function StudentsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (ids) => Promise.all(ids.map((id) => studentsAPI.delete(id))),
+    mutationFn: (ids) => studentsAPI.delete(ids),
     onSuccess: (_, ids) => {
       setSelectedIds([]);
       queryClient.invalidateQueries();
       queryClient.invalidateQueries({ queryKey: ['departments-list'] });
       queryClient.invalidateQueries({ queryKey: ['years-list'] });
-      toast.success(`${ids.length} student${ids.length === 1 ? '' : 's'} deleted`);
+      const count = Array.isArray(ids) ? ids.length : 1;
+      toast.success(`${count} student${count === 1 ? '' : 's'} deleted`);
     },
     onError: (error) => toast.error(error.response?.data?.error || 'Could not delete selected students'),
   });
