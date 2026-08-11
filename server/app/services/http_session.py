@@ -19,10 +19,10 @@ HEADERS = {
 }
 
 DOMAIN_DELAYS = {
-    "www.codechef.com": 0.01,
-    "codechef.com": 0.01,
-    "leetcode.com": 0.01,
-    "hackerrank.com": 0.01,
+    "www.codechef.com": 1.5,
+    "codechef.com": 1.5,
+    "leetcode.com": 0.5,
+    "hackerrank.com": 0.5,
 }
 
 

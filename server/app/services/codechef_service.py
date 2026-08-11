@@ -249,20 +249,22 @@ def fetch_codechef(username):
     session = get_http_session()
 
     response = None
-    for attempt in range(2):
+    for attempt in range(3):
         try:
-            response = session.get(url, headers=HEADERS, timeout=8)
+            response = session.get(url, headers=HEADERS, timeout=10)
             if response.status_code == 404:
                 raise ValueError("CodeChef profile not found")
             if response.status_code == 429:
-                break
+                time.sleep(2 + attempt * 2)
+                continue
             response.raise_for_status()
             break
         except ValueError:
             raise
         except Exception as err:
-            if attempt == 1:
+            if attempt == 2:
                 raise err
+            time.sleep(1.5 + attempt)
 
     if not response or not response.ok:
         raise ValueError("Could not connect to CodeChef profile page")

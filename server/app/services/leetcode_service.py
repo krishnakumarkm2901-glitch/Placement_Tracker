@@ -43,9 +43,25 @@ def fetch_leetcode(username):
         raise ValueError("LeetCode username is empty")
 
     query = """query userProfile($username: String!) { allQuestionsCount { difficulty count } matchedUser(username: $username) { username profile { realName ranking reputation starRating userAvatar company school countryName } badges { id displayName icon creationDate } languageProblemCount { languageName problemsSolved } tagProblemCounts { advanced { tagName tagSlug problemsSolved } intermediate { tagName tagSlug problemsSolved } fundamental { tagName tagSlug problemsSolved } } submitStats { acSubmissionNum { difficulty count submissions } totalSubmissionNum { difficulty count submissions } } userCalendar { activeYears streak totalActiveDays submissionCalendar } } recentSubmissionList(username: $username, limit: 20) { title titleSlug timestamp statusDisplay lang } userContestRanking(username: $username) { attendedContestsCount rating globalRanking topPercentage } }"""
+    import time
     session = get_http_session()
-    response = session.post("https://leetcode.com/graphql", json={"query": query, "variables": {"username": username}}, headers=HEADERS, timeout=8)
-    response.raise_for_status()
+    response = None
+    for attempt in range(3):
+        try:
+            response = session.post("https://leetcode.com/graphql", json={"query": query, "variables": {"username": username}}, headers=HEADERS, timeout=10)
+            if response.status_code == 429:
+                time.sleep(2 + attempt * 2)
+                continue
+            response.raise_for_status()
+            break
+        except Exception as err:
+            if attempt == 2:
+                raise err
+            time.sleep(1.5 + attempt)
+
+    if not response or not response.ok:
+        raise ValueError("Could not connect to LeetCode API")
+
     payload = response.json().get("data") or {}
     user = payload.get("matchedUser")
     if not user:

@@ -63,25 +63,32 @@ def fetch_hackerrank(username):
     session = get_http_session()
     base = f"https://www.hackerrank.com/rest/hackers/{username}"
 
-    try:
-        response = session.get(base, headers=HEADERS, timeout=6)
-    except requests.exceptions.RequestException as err:
-        logger.warning(
-            f"[HackerRank] Connection error | Username: {username} | Error: {err}"
-        )
-        raise ValueError(f"Could not connect to HackerRank API for username '{username}': {err}")
+    import time
+    response = None
+    for attempt in range(3):
+        try:
+            response = session.get(base, headers=HEADERS, timeout=10)
+            if response.status_code == 404:
+                raise ValueError(f"HackerRank profile '{username}' not found or is private")
+            if response.status_code == 429:
+                time.sleep(2 + attempt * 2)
+                continue
+            if response.status_code >= 500:
+                time.sleep(1 + attempt)
+                continue
+            response.raise_for_status()
+            break
+        except ValueError:
+            raise
+        except Exception as err:
+            if attempt == 2:
+                logger.warning(f"[HackerRank] Connection error | Username: {username} | Error: {err}")
+                raise ValueError(f"Could not connect to HackerRank API for username '{username}': {err}")
+            time.sleep(1.5 + attempt)
 
-    if response.status_code == 404:
-        raise ValueError(f"HackerRank profile '{username}' not found or is private")
-    if response.status_code == 429:
-        raise ValueError(f"HackerRank rate limit exceeded (429) for username '{username}'")
-    if response.status_code >= 500:
-        logger.warning(
-            f"[HackerRank] Server returned HTTP {response.status_code} | Username: {username}"
-        )
-        raise ValueError(f"HackerRank server error (HTTP {response.status_code}) for username '{username}'")
+    if not response or not response.ok:
+        raise ValueError(f"Could not connect to HackerRank API for username '{username}'")
 
-    response.raise_for_status()
     model = (response.json() or {}).get("model")
     if not model or model.get("deleted"):
         raise ValueError(f"HackerRank profile '{username}' not found")
