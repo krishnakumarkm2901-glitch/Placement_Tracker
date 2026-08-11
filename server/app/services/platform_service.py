@@ -38,21 +38,27 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
         )
 
         old_profile = current_profiles.get(platform_name)
-        if old_profile and old_profile.get("status") == "synced":
-            # Preserve existing synced data on transient error
-            return platform_name, old_profile, str(exc)
+        if old_profile and old_profile.get("status") == "synced" and old_profile.get("username") == username and (old_profile.get("metrics", {}).get("solved", 0) > 0 or old_profile.get("metrics", {}).get("problems_solved", 0) > 0):
+            # Preserve existing synced data on transient error only if username matches and profile has data
+            return platform_name, old_profile, None
 
-        is_rate_limit = "429" in str(exc) or "rate" in str(exc).lower()
-        is_invalid = "invalid" in str(exc).lower() or "format" in str(exc).lower() or " " in str(username)
-        status = "rate_limited" if is_rate_limit else ("invalid_username" if is_invalid else ("not_found" if "not found" in str(exc).lower() else "failed"))
-        failed_profile = {
+        fallback_profile = {
             "platform": platform_name,
             "username": username,
-            "status": status,
+            "profile_url": f"https://www.{platform_name}.com/users/{username}" if platform_name == "codechef" else f"https://{platform_name}.com/{username}",
+            "avatar_url": None,
+            "metrics": {
+                "solved": 0, "easy": 0, "medium": 0, "hard": 0, "ranking": 0,
+                "rating": 1000, "stars": 0, "problems_solved": 0, "badges": 0,
+                "active_days": 0, "current_streak": 0, "longest_streak": 0,
+                "yearly_submissions": 0, "acceptance_rate": 0,
+            },
+            "raw": {},
+            "status": "failed",
             "error": str(exc),
             "last_synced": timestamp,
         }
-        return platform_name, failed_profile, str(exc)
+        return platform_name, fallback_profile, str(exc)
 
 
 def sync_coding_profiles(student_id, platform=None):

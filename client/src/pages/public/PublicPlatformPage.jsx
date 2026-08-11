@@ -65,10 +65,10 @@ export default function PublicPlatformPage({ platform }) {
   const profiles = useMemo(() => {
     const available = (data?.students || []).filter((student) => {
       if (!student) return false;
-      const username = platform === 'github' ? student.github_username : student.platform_usernames?.[platform];
+      const username = platform === 'github' ? student.github_username : (student.platform_usernames?.[platform] || student[`${platform}_username`]);
+      if (!username || !String(username).trim()) return false;
       const sName = student.name || '';
-      return (platform === 'github' || username) &&
-        (!search || sName.toLowerCase().includes(search) || username?.toLowerCase().includes(search)) &&
+      return (!search || sName.toLowerCase().includes(search) || String(username).toLowerCase().includes(search)) &&
         (!department || student.department === department) &&
         (!year || String(student.year) === String(year));
     });

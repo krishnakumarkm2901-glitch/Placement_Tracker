@@ -25,6 +25,7 @@ import {
 import { toast } from 'react-toastify';
 
 function PlatformStatus({ row, platform }) {
+  const navigate = useNavigate();
   const username = platform === 'github'
     ? row.github_username
     : (row.platform_usernames?.[platform] || row[`${platform}_username`]);
@@ -32,7 +33,24 @@ function PlatformStatus({ row, platform }) {
   const status = platform === 'github'
     ? row.sync_status || 'pending'
     : row.platform_profiles?.[platform]?.status || 'pending';
-  return <Badge variant={status === 'synced' ? 'success' : status === 'failed' ? 'danger' : 'warning'} dot>{status}</Badge>;
+
+  const path = platform === 'github'
+    ? `/students/${row.id}`
+    : `/${platform}/${row.id}`;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigate(path);
+      }}
+      className="inline-block text-left hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+      title={`Click to view ${platform.toUpperCase()} profile for ${row.name}`}
+    >
+      <Badge variant={status === 'synced' ? 'success' : status === 'failed' ? 'danger' : 'warning'} dot>{status}</Badge>
+    </button>
+  );
 }
 
 export default function StudentsPage() {

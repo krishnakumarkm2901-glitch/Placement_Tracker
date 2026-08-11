@@ -99,7 +99,21 @@ export default function PlatformProfileOverviewPage({ platform: platformProp }) 
   const backPath = isAdmin ? ({ github: '/github-tracker', leetcode: '/leetcode', codechef: '/codechef', hackerrank: '/hackerrank' }[platform]) : `/platform/${platform}`;
   return <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <div className="flex items-center justify-between mb-5"><Button variant="ghost" icon={HiOutlineArrowLeft} onClick={() => navigate(backPath)} size="sm">Back to {config.name}</Button>{isAdmin && <Button variant="secondary" icon={HiOutlineArrowPath} onClick={() => syncMutation.mutate()} loading={syncMutation.isPending} size="sm">Sync</Button>}</div>
-    <Card className="mb-6"><div className="flex flex-col sm:flex-row sm:items-center gap-5"><Avatar src={avatar} name={student.name} size="xl" /><div className="flex-1"><div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold text-surface-900 dark:text-white">{platform === 'leetcode' ? profile?.raw?.real_name || student.name : student.name}</h1><Badge variant={status === 'synced' ? 'success' : status === 'failed' ? 'danger' : 'warning'} dot>{status}</Badge></div><p className="text-surface-500 mt-1">{student.department} · Year {student.year}</p><a href={profile?.profile_url || `https://github.com/${username}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary-500 hover:underline mt-2">@{username}<HiOutlineArrowTopRightOnSquare className="w-4 h-4" /></a></div><div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 flex items-center justify-center"><Icon className="w-7 h-7" /></div></div></Card>
+    <Card className="mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+        <Avatar src={avatar} name={student.name} size="xl" />
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-surface-900 dark:text-white">{platform === 'leetcode' ? profile?.raw?.real_name || student.name : student.name}</h1>
+            <Badge variant={status === 'synced' ? 'success' : status === 'failed' ? 'danger' : 'warning'} dot>{status}</Badge>
+          </div>
+          <p className="text-surface-500 mt-1">{student.department} · Year {student.year}</p>
+          <a href={profile?.profile_url || `https://github.com/${username}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary-500 hover:underline mt-2">@{username}<HiOutlineArrowTopRightOnSquare className="w-4 h-4" /></a>
+          
+        </div>
+        <div className="w-12 h-12 rounded-xl bg-primary-100 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 flex items-center justify-center"><Icon className="w-7 h-7" /></div>
+      </div>
+    </Card>
     {['leetcode', 'codechef', 'hackerrank'].includes(platform) && (
       <DailyTasksCard platform={platform} date={todayTasks?.date} problems={todayTasks?.problems || []} studentProfile={profile} className="mb-6" />
     )}

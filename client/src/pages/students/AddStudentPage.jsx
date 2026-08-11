@@ -32,11 +32,24 @@ export default function AddStudentPage() {
 
   const mutation = useMutation({
     mutationFn: (data) => studentsAPI.create(data),
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       const msg = response.data?.message || 'Student platform data saved. Fetching profiles...';
       toast.success(msg);
       qc.invalidateQueries(['students']);
-      navigate(`/students/${response.data.student.id}`);
+      const studentId = response.data?.student?.id;
+      if (!studentId) {
+        navigate('/students');
+        return;
+      }
+      if (variables?.leetcode_username && !variables?.github_username) {
+        navigate(`/leetcode/${studentId}`);
+      } else if (variables?.codechef_username && !variables?.github_username) {
+        navigate(`/codechef/${studentId}`);
+      } else if (variables?.hackerrank_username && !variables?.github_username) {
+        navigate(`/hackerrank/${studentId}`);
+      } else {
+        navigate(`/students/${studentId}`);
+      }
     },
     onError: (err) => {
       toast.error(err.response?.data?.error || 'Failed to add student');

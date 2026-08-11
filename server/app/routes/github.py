@@ -43,16 +43,9 @@ def _check_needs_sync(platform=None):
 
 @github_bp.route("/sync", methods=["POST"])
 @admin_required
-@rate_limit(max_requests=5, window_seconds=300)
+@rate_limit(max_requests=10, window_seconds=60)
 def trigger_sync():
     """Trigger GitHub, LeetCode, CodeChef, and HackerRank sync."""
-    if not _check_needs_sync():
-        return jsonify({
-            "message": "Nothing to sync. All platform profiles are already up to date!",
-            "nothing_to_sync": True,
-            "status": get_sync_status(),
-        }), 200
-
     import threading
     thread = threading.Thread(target=sync_all_students, daemon=True)
     thread.start()
@@ -78,16 +71,9 @@ def trigger_student_sync(student_id):
 
 @github_bp.route("/sync/platform/<platform>", methods=["POST"])
 @admin_required
-@rate_limit(max_requests=5, window_seconds=300)
+@rate_limit(max_requests=10, window_seconds=60)
 def trigger_platform_sync(platform):
     """Trigger sync for a single platform across all students."""
-    if not _check_needs_sync(platform):
-        return jsonify({
-            "message": f"Nothing to sync. All {platform.capitalize()} profiles are already up to date!",
-            "nothing_to_sync": True,
-            "status": get_sync_status(),
-        }), 200
-
     import threading
     thread = threading.Thread(target=sync_all_students_for_platform, args=(platform,), daemon=True)
     thread.start()

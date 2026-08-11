@@ -135,8 +135,16 @@ function StudentCompareSection({ students, attendanceMap, platform }) {
   const years = useMemo(() => [...new Set(students.map((s) => s.year).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b))), [students]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter((s) => (!deptFilter || s.department === deptFilter) && (!yearFilter || String(s.year) === yearFilter));
-  }, [students, deptFilter, yearFilter]);
+    return students.filter((s) => {
+      if (deptFilter && s.department !== deptFilter) return false;
+      if (yearFilter && String(s.year) !== yearFilter) return false;
+      if (platform !== 'all') {
+        const u = platform === 'github' ? s.github_username : (s.platform_usernames?.[platform] || s[`${platform}_username`]);
+        if (!u || !String(u).trim()) return false;
+      }
+      return true;
+    });
+  }, [students, deptFilter, yearFilter, platform]);
 
   const firstStudent = students.find((s) => String(s.id) === firstId);
   const secondStudent = students.find((s) => String(s.id) === secondId);

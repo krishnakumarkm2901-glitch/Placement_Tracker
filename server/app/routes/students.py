@@ -154,12 +154,28 @@ def get_public_platform_students(platform):
         return jsonify({"error": "Unsupported platform"}), 400
 
     from app.services.platform_storage import load_platform_data_bulk
-    students = list(db.students.find({"is_active": True}).limit(200))
+    username_field = "github_username" if platform == "github" else f"{platform}_username"
+    platform_key = f"platform_usernames.{platform}"
+    query = {
+        "is_active": True,
+        "$or": [
+            {username_field: {"$exists": True, "$ne": ""}},
+            {platform_key: {"$exists": True, "$ne": ""}},
+        ],
+    }
+    students = list(db.students.find(query).limit(200))
     hydrated_students = load_platform_data_bulk(students)
+
+    valid_students = []
+    for item in hydrated_students:
+        summary = serialize_student_summary(item)
+        u = summary.get("github_username", "") if platform == "github" else (summary.get("platform_usernames") or {}).get(platform, "")
+        if u and str(u).strip():
+            valid_students.append(summary)
 
     return jsonify({
         "platform": platform,
-        "students": [serialize_student_summary(item) for item in hydrated_students],
+        "students": valid_students,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }), 200
 

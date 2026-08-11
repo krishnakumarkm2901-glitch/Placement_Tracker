@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from app.services.platform_common import HEADERS, platform_result
+from app.services.platform_common import HEADERS, platform_result, normalize_platform_username
 
 
 QUESTION_DIFFICULTY_CACHE = {}
@@ -38,7 +38,7 @@ def get_question_difficulty(title_slug):
 
 
 def fetch_leetcode(username):
-    username = str(username or "").strip()
+    username = normalize_platform_username(username)
     if not username:
         raise ValueError("LeetCode username is empty")
 

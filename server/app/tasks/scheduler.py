@@ -33,7 +33,7 @@ def init_scheduler(app):
                 ]
             })
             if unsynced_count > 0:
-                print(f"[AUTO-SYNC] Found {unsynced_count} pending profiles. Starting automatic sync...")
+                print(f"[AUTO-SYNC] Found {unsynced_count} pending/failed profiles. Starting automatic sync...")
                 sync_all_students()
 
     scheduler.add_job(
@@ -46,11 +46,11 @@ def init_scheduler(app):
 
     scheduler.add_job(
         func=auto_retry_job,
-        trigger=IntervalTrigger(minutes=15),
+        trigger=IntervalTrigger(minutes=5),
         id="auto_retry_sync",
         name="Auto Retry Unsynced Profiles",
         replace_existing=True,
     )
 
     scheduler.start()
-    print(f"[SCHEDULER] Started: full sync every {Config.SYNC_INTERVAL_HOURS} hours, auto-retry every 15 minutes")
+    print(f"[SCHEDULER] Started: full sync every {Config.SYNC_INTERVAL_HOURS} hours, auto-retry every 5 minutes")

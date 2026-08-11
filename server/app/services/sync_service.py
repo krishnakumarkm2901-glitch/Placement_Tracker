@@ -49,6 +49,31 @@ def sync_student_safely(student_id):
         return False
 
 
+def normalize_all_student_usernames():
+    """Normalize all student platform usernames in DB (strip @, URLs, spaces)."""
+    from app.services.platform_common import normalize_platform_username
+    students = list(db.students.find({"is_active": True}))
+    for student in students:
+        usernames = student.get("platform_usernames") or {}
+        gh = normalize_platform_username(student.get("github_username") or usernames.get("github"))
+        lc = normalize_platform_username(student.get("leetcode_username") or usernames.get("leetcode"))
+        cc = normalize_platform_username(student.get("codechef_username") or usernames.get("codechef"))
+        hr = normalize_platform_username(student.get("hackerrank_username") or usernames.get("hackerrank"))
+
+        norm_dict = {"github": gh, "leetcode": lc, "codechef": cc, "hackerrank": hr}
+
+        db.students.update_one(
+            {"_id": student["_id"]},
+            {"$set": {
+                "github_username": gh,
+                "leetcode_username": lc,
+                "codechef_username": cc,
+                "hackerrank_username": hr,
+                "platform_usernames": norm_dict,
+            }}
+        )
+
+
 def sync_all_students():
     """Sync GitHub and every configured coding platform continuously for all active students until fully synced."""
     global sync_state
@@ -56,6 +81,7 @@ def sync_all_students():
     if sync_state["is_syncing"]:
         return {"error": "Sync already in progress"}
 
+    normalize_all_student_usernames()
     students = list(db.students.find({"is_active": True}))
     sync_state.update({
         "is_syncing": True,
@@ -153,6 +179,7 @@ def sync_all_students_for_platform(platform):
     if sync_state["is_syncing"]:
         return {"error": "Sync already in progress"}
 
+    normalize_all_student_usernames()
     students = list(db.students.find({"is_active": True}))
     sync_state.update({
         "is_syncing": True,
