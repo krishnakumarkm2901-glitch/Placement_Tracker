@@ -107,7 +107,6 @@ export default function App() {
                       <Route path="platform/hackerrank/profile/:id" element={<PlatformProfileOverviewPage platform="hackerrank" />} />
                       <Route path="leaderboard" element={<PublicDashboardPage />} />
                       <Route path="compare" element={<PublicDashboardPage />} />
-                      <Route path="attendance" element={<AttendancePage />} />
                       <Route path="profile/:id" element={<StudentDetailPage publicView />} />
                     </Route>
 
