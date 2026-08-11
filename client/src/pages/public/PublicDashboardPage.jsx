@@ -12,6 +12,8 @@ import {
   BarChart, Bar, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 
+import CompareView from '../../components/compare/CompareView';
+
 const metrics = [
   ['GitHub Score', 'github_score'], ['Repositories', 'total_repos'],
   ['Commits', 'total_commits'],
@@ -23,9 +25,6 @@ export default function PublicDashboardPage() {
   const mode = location.pathname.endsWith('/compare') ? 'compare' : location.pathname.endsWith('/leaderboard') ? 'leaderboard' : 'dashboard';
   const [search, setSearch] = useState('');
   const [showAllStudents, setShowAllStudents] = useState(false);
-  const [firstId, setFirstId] = useState('');
-  const [secondId, setSecondId] = useState('');
-  const [compareIds, setCompareIds] = useState([]);
   const [department, setDepartment] = useState('');
   const [year, setYear] = useState('');
   const [appliedDepartment, setAppliedDepartment] = useState('');
@@ -51,13 +50,6 @@ export default function PublicDashboardPage() {
     : students;
   const departments = useMemo(() => [...new Set((data?.students || []).map((student) => student.department).filter(Boolean))].sort(), [data]);
   const years = useMemo(() => [...new Set((data?.students || []).map((student) => student.year).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b))), [data]);
-  const compareStudents = useMemo(() => (data?.students || []).filter((student) =>
-    (!department || student.department === department) && (!year || String(student.year) === year)
-  ), [data, department, year]);
-  const first = (data?.students || []).find((student) => String(student.id) === compareIds[0]);
-  const second = (data?.students || []).find((student) => String(student.id) === compareIds[1]);
-  const firstOptions = compareStudents.filter((student) => String(student.id) !== secondId).map((student) => ({ value: String(student.id), label: `${student.name} (@${student.github_username})` }));
-  const secondOptions = compareStudents.filter((student) => String(student.id) !== firstId).map((student) => ({ value: String(student.id), label: `${student.name} (@${student.github_username})` }));
   const totals = useMemo(() => {
     const all = data?.students || [];
     return {
@@ -78,33 +70,12 @@ export default function PublicDashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {mode !== 'dashboard' && <div className="mb-7">
-        <p className="text-sm font-semibold text-primary-500">Live GitHub Analytics</p>
-        <h1 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white font-display mt-1 flex items-center gap-2">{mode === 'leaderboard' && <HiOutlineTrophy className="w-8 h-8 text-[#d29922]" />}{mode === 'compare' ? 'Compare Students' : mode === 'leaderboard' ? 'Placement_Tracker Leaderboard' : 'Student Dashboard'}</h1>
-        <p className="text-surface-500 mt-2">Public, read-only activity refreshed automatically from GitHub.</p>
+        <p className="text-sm font-semibold text-primary-500">Comprehensive Student Comparison</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-surface-900 dark:text-white font-display mt-1 flex items-center gap-2">{mode === 'leaderboard' && <HiOutlineTrophy className="w-8 h-8 text-[#d29922]" />}{mode === 'compare' ? 'Placement_Tracker Analytics Comparison' : mode === 'leaderboard' ? 'Placement_Tracker Leaderboard' : 'Student Dashboard'}</h1>
+        <p className="text-surface-500 mt-2">Compare performance across GitHub, LeetCode, CodeChef, HackerRank, Attendance, and Department analytics.</p>
       </div>}
       {mode === 'compare' ? (
-        <div className="space-y-6">
-          <section className="glass-card-solid p-5 sm:p-7 lg:p-8 shadow-xl">
-            <div className="flex items-start gap-3 mb-7">
-              <div className="rounded-lg bg-primary-500/10 p-2 text-primary-500"><HiOutlineArrowsRightLeft className="w-7 h-7" /></div>
-              <div><h2 className="text-xl sm:text-2xl font-bold text-surface-900 dark:text-white">Classmate Comparison</h2><p className="text-sm sm:text-base text-surface-500 mt-1">Select any two students to compare their live GitHub activity and coding strengths side-by-side.</p></div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4 max-w-3xl mb-7">
-              <Select label="Filter Department" placeholder="All Departments" value={department} onChange={(event) => { setDepartment(event.target.value); setFirstId(''); setSecondId(''); setCompareIds([]); }} options={departments.map((value) => ({ value, label: value }))} />
-              <Select label="Filter Year" placeholder="All Years" value={year} onChange={(event) => { setYear(event.target.value); setFirstId(''); setSecondId(''); setCompareIds([]); }} options={years.map((value) => ({ value: String(value), label: String(value).toLowerCase().includes('year') ? value : `Year ${value}` }))} />
-            </div>
-            <div className="grid md:grid-cols-[1fr_auto_1fr] gap-4 md:gap-6 items-end">
-              <Select label="Student A" placeholder="-- Select Student --" value={firstId} onChange={(event) => { setFirstId(event.target.value); setCompareIds([]); }} options={firstOptions} />
-              <div className="hidden md:flex w-12 h-12 items-center justify-center mb-0.5 rounded-full border border-surface-300 dark:border-surface-600 text-lg font-bold text-surface-500">VS</div>
-              <div className="md:hidden text-center font-bold text-surface-500">VS</div>
-              <Select label="Student B" placeholder="-- Select Student --" value={secondId} onChange={(event) => { setSecondId(event.target.value); setCompareIds([]); }} options={secondOptions} />
-            </div>
-            <div className="flex justify-center mt-7">
-              <button type="button" disabled={!firstId || !secondId || firstId === secondId} onClick={() => setCompareIds([firstId, secondId])} className="btn-primary w-full sm:w-auto sm:min-w-[280px]"><HiOutlineChartBar className="w-5 h-5" />Compare Students</button>
-            </div>
-          </section>
-          {first && second && <Card><div className="grid grid-cols-[minmax(80px,1fr)_1fr_1fr] gap-2 sm:gap-3 items-center"><div /><div className="text-center min-w-0"><Avatar src={first.avatar_url} name={first.name} size="md" className="mx-auto" /><p className="font-bold text-xs sm:text-base truncate mt-2">{first.name}</p><p className="text-[10px] sm:text-xs text-surface-500 truncate">@{first.github_username}</p></div><div className="text-center min-w-0"><Avatar src={second.avatar_url} name={second.name} size="md" className="mx-auto" /><p className="font-bold text-xs sm:text-base truncate mt-2">{second.name}</p><p className="text-[10px] sm:text-xs text-surface-500 truncate">@{second.github_username}</p></div>{metrics.map(([label, key]) => <div className="contents" key={key}><p className="text-xs sm:text-sm text-surface-500 py-3 border-t">{label}</p><p className={`text-base sm:text-xl font-bold text-center py-3 border-t ${(first[key] || 0) >= (second[key] || 0) ? 'text-[#2da44e]' : 'text-surface-700 dark:text-surface-200'}`}>{first[key] || 0}</p><p className={`text-base sm:text-xl font-bold text-center py-3 border-t ${(second[key] || 0) >= (first[key] || 0) ? 'text-[#2da44e]' : 'text-surface-700 dark:text-surface-200'}`}>{second[key] || 0}</p></div>)}</div></Card>}
-        </div>
+        <CompareView />
       ) : (
         <>
           {false && mode === 'dashboard' && (

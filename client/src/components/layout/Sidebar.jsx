@@ -14,7 +14,7 @@ import {
 } from 'react-icons/hi2';
 import { VscGithubInverted } from 'react-icons/vsc';
 import { SiCodechef, SiHackerrank, SiLeetcode } from 'react-icons/si';
-import { HiOutlineArrowsRightLeft } from 'react-icons/hi2';
+import { HiOutlineArrowsRightLeft, HiOutlineClipboardDocumentCheck, HiOutlineClipboardDocumentList } from 'react-icons/hi2';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: HiOutlineHome },
@@ -23,8 +23,10 @@ const navItems = [
   { to: '/leetcode', label: 'LeetCode', icon: SiLeetcode },
   { to: '/codechef', label: 'CodeChef', icon: SiCodechef },
   { to: '/hackerrank', label: 'HackerRank', icon: SiHackerrank },
+  { to: '/attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
   { to: '/leaderboards', label: 'Leaderboards', icon: HiOutlineTrophy },
   { to: '/reports', label: 'Reports', icon: HiOutlineDocumentChartBar },
+  { to: '/daily-task-report', label: 'Daily Task Report', icon: HiOutlineClipboardDocumentList },
   { to: '/notifications', label: 'Notifications', icon: HiOutlineBellAlert },
 ];
 
@@ -39,6 +41,7 @@ export default function Sidebar() {
         { to: '/student', label: 'Dashboard', icon: HiOutlineHome },
         { to: '/student/leaderboard', label: 'Leaderboard', icon: HiOutlineTrophy },
         { to: '/student/compare', label: 'Compare', icon: HiOutlineArrowsRightLeft },
+        { to: '/student/attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
       ];
 
   const linkClasses = (isActive) =>

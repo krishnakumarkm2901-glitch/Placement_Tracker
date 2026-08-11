@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { VscGithubInverted } from 'react-icons/vsc';
 import { SiCodechef, SiHackerrank, SiLeetcode } from 'react-icons/si';
-import { HiOutlineSquares2X2, HiOutlineTrophy, HiOutlineChartBar, HiOutlineMoon, HiOutlineSun, HiOutlineMagnifyingGlass } from 'react-icons/hi2';
+import { HiOutlineSquares2X2, HiOutlineTrophy, HiOutlineChartBar, HiOutlineClipboardDocumentCheck, HiOutlineMoon, HiOutlineSun, HiOutlineMagnifyingGlass } from 'react-icons/hi2';
 import { useTheme } from '../../contexts/ThemeContext';
 import Footer from './Footer';
 
@@ -23,6 +23,7 @@ export default function PublicLayout() {
     { to: `/platform/${selectedPlatform}`, label: 'Dashboard', icon: HiOutlineSquares2X2 },
     { to: `/platform/${selectedPlatform}/leaderboard`, label: 'Leaderboard', icon: HiOutlineTrophy },
     { to: `/platform/${selectedPlatform}/compare`, label: 'Compare', icon: HiOutlineChartBar },
+    { to: `/platform/${selectedPlatform}/attendance`, label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
   ];
   const ThemeIcon = theme === 'dark' ? HiOutlineSun : HiOutlineMoon;
 

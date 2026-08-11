@@ -40,6 +40,8 @@ def create_app():
     from app.routes.notifications import notifications_bp
     from app.routes.achievements import achievements_bp
     from app.routes.daily_tasks import daily_tasks_bp
+    from app.routes.attendance import attendance_bp
+    from app.routes.daily_task_reports import daily_task_reports_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(students_bp, url_prefix="/api/students")
@@ -50,6 +52,8 @@ def create_app():
     app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(achievements_bp, url_prefix="/api/achievements")
     app.register_blueprint(daily_tasks_bp, url_prefix="/api/daily-tasks")
+    app.register_blueprint(attendance_bp, url_prefix="/api/attendance")
+    app.register_blueprint(daily_task_reports_bp, url_prefix="/api/daily-task-reports")
 
     # ── Seed default admin ──────────────────────────────────────────
     with app.app_context():

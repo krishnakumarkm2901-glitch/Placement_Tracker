@@ -29,6 +29,9 @@ const ServerErrorPage = lazy(() => import('./pages/errors/ServerErrorPage'));
 const PublicDashboardPage = lazy(() => import('./pages/public/PublicDashboardPage'));
 const PublicPlatformPage = lazy(() => import('./pages/public/PublicPlatformPage'));
 const PlatformProfileOverviewPage = lazy(() => import('./pages/public/PlatformProfileOverviewPage'));
+const AttendancePage = lazy(() => import('./pages/attendance/AttendancePage'));
+const StudentAttendancePage = lazy(() => import('./pages/attendance/StudentAttendancePage'));
+const DailyTaskReportPage = lazy(() => import('./pages/reports/DailyTaskReportPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,21 +88,26 @@ export default function App() {
                       <Route path="platform/github" element={<PublicPlatformPage platform="github" />} />
                       <Route path="platform/github/leaderboard" element={<PublicPlatformPage platform="github" />} />
                       <Route path="platform/github/compare" element={<PublicPlatformPage platform="github" />} />
+                      <Route path="platform/github/attendance" element={<AttendancePage />} />
                       <Route path="platform/github/profile/:id" element={<StudentDetailPage publicView backPath="/platform/github" />} />
                       <Route path="platform/leetcode" element={<PublicPlatformPage platform="leetcode" />} />
                       <Route path="platform/leetcode/leaderboard" element={<LeetCodeLeaderboardPage />} />
                       <Route path="platform/leetcode/compare" element={<PublicPlatformPage platform="leetcode" />} />
+                      <Route path="platform/leetcode/attendance" element={<AttendancePage />} />
                       <Route path="platform/leetcode/profile/:id" element={<PlatformProfileOverviewPage platform="leetcode" />} />
                       <Route path="platform/codechef" element={<PublicPlatformPage platform="codechef" />} />
                       <Route path="platform/codechef/leaderboard" element={<PublicPlatformPage platform="codechef" />} />
                       <Route path="platform/codechef/compare" element={<PublicPlatformPage platform="codechef" />} />
+                      <Route path="platform/codechef/attendance" element={<AttendancePage />} />
                       <Route path="platform/codechef/profile/:id" element={<PlatformProfileOverviewPage platform="codechef" />} />
                       <Route path="platform/hackerrank" element={<PublicPlatformPage platform="hackerrank" />} />
                       <Route path="platform/hackerrank/leaderboard" element={<PublicPlatformPage platform="hackerrank" />} />
                       <Route path="platform/hackerrank/compare" element={<PublicPlatformPage platform="hackerrank" />} />
+                      <Route path="platform/hackerrank/attendance" element={<AttendancePage />} />
                       <Route path="platform/hackerrank/profile/:id" element={<PlatformProfileOverviewPage platform="hackerrank" />} />
                       <Route path="leaderboard" element={<PublicDashboardPage />} />
                       <Route path="compare" element={<PublicDashboardPage />} />
+                      <Route path="attendance" element={<AttendancePage />} />
                       <Route path="profile/:id" element={<StudentDetailPage publicView />} />
                     </Route>
 
@@ -121,6 +129,8 @@ export default function App() {
                       <Route path="leaderboards" element={<AdminRoute><AdminLeaderboardsPage /></AdminRoute>} />
                       <Route path="reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
                       <Route path="notifications" element={<AdminRoute><NotificationsPage /></AdminRoute>} />
+                      <Route path="attendance" element={<AdminRoute><AttendancePage /></AdminRoute>} />
+                      <Route path="daily-task-report" element={<AdminRoute><DailyTaskReportPage /></AdminRoute>} />
                       <Route path="student" element={<StudentRoute><StudentPlatformPage platform="github" /></StudentRoute>} />
                       <Route path="student/leaderboard" element={<StudentRoute><LeetCodeLeaderboardPage /></StudentRoute>} />
                       <Route path="student/compare" element={<StudentRoute><PublicDashboardPage /></StudentRoute>} />
@@ -128,6 +138,7 @@ export default function App() {
                       <Route path="student/leetcode" element={<StudentRoute><StudentPlatformPage platform="leetcode" /></StudentRoute>} />
                       <Route path="student/codechef" element={<StudentRoute><StudentPlatformPage platform="codechef" /></StudentRoute>} />
                       <Route path="student/hackerrank" element={<StudentRoute><StudentPlatformPage platform="hackerrank" /></StudentRoute>} />
+                      <Route path="student/attendance" element={<StudentRoute><StudentAttendancePage /></StudentRoute>} />
                     </Route>
 
                     {/* 404 */}
