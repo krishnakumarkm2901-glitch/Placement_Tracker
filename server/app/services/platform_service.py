@@ -42,6 +42,10 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
             # Preserve existing synced data on transient error only if username matches and profile has data
             return platform_name, old_profile, None
 
+        err_msg = str(exc).lower()
+        is_not_found = "not found" in err_msg or "private" in err_msg or "invalid" in err_msg or "profile data unavailable" in err_msg
+        status = "failed" if is_not_found else "syncing"
+
         fallback_profile = {
             "platform": platform_name,
             "username": username,
@@ -54,7 +58,7 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
                 "yearly_submissions": 0, "acceptance_rate": 0,
             },
             "raw": {},
-            "status": "failed",
+            "status": status,
             "error": str(exc),
             "last_synced": timestamp,
         }

@@ -26,10 +26,10 @@ def init_scheduler(app):
             unsynced_count = db.students.count_documents({
                 "is_active": True,
                 "$or": [
-                    {"sync_status": {"$in": ["pending", "failed", "rate_limited"]}},
-                    {"platform_profiles.codechef.status": {"$in": ["pending", "failed", "rate_limited"]}},
-                    {"platform_profiles.leetcode.status": {"$in": ["pending", "failed", "rate_limited"]}},
-                    {"platform_profiles.hackerrank.status": {"$in": ["pending", "failed", "rate_limited"]}},
+                    {"sync_status": {"$in": ["pending", "failed", "rate_limited", "syncing"]}},
+                    {"platform_profiles.codechef.status": {"$in": ["pending", "failed", "rate_limited", "syncing"]}},
+                    {"platform_profiles.leetcode.status": {"$in": ["pending", "failed", "rate_limited", "syncing"]}},
+                    {"platform_profiles.hackerrank.status": {"$in": ["pending", "failed", "rate_limited", "syncing"]}},
                 ]
             })
             if unsynced_count > 0:
