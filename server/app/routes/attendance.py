@@ -13,7 +13,7 @@ from app.services.platform_storage import COLLECTIONS
 attendance_bp = Blueprint("attendance", __name__)
 
 
-def _get_submission_dates(student_id, year, month):
+def _get_submission_dates(student_id, year, month, lc_doc=None, cc_doc=None, hr_doc=None):
     """Collect all dates in the given month where the student had at least one
     accepted submission on LeetCode, CodeChef, or HackerRank.
 
@@ -41,22 +41,36 @@ def _get_submission_dates(student_id, year, month):
             ts = int(dt.timestamp())
             month_timestamps[str(ts)] = day
 
-    # Try both ObjectId and string forms of student_id
-    student_id_variants = [student_id]
-    if isinstance(student_id, ObjectId):
-        student_id_variants.append(str(student_id))
-    elif isinstance(student_id, str):
-        try:
-            student_id_variants.append(ObjectId(student_id))
-        except Exception:
-            pass
+    # Try both ObjectId and string forms of student_id only if profiles are missing
+    if lc_doc is None or cc_doc is None or hr_doc is None:
+        student_id_variants = [student_id]
+        if isinstance(student_id, ObjectId):
+            student_id_variants.append(str(student_id))
+        elif isinstance(student_id, str):
+            try:
+                student_id_variants.append(ObjectId(student_id))
+            except Exception:
+                pass
+
+        if lc_doc is None:
+            for sid in student_id_variants:
+                lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": sid})
+                if lc_doc:
+                    break
+
+        if cc_doc is None:
+            for sid in student_id_variants:
+                cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": sid})
+                if cc_doc:
+                    break
+
+        if hr_doc is None:
+            for sid in student_id_variants:
+                hr_doc = db[COLLECTIONS["hackerrank"]].find_one({"student_id": sid})
+                if hr_doc:
+                    break
 
     # --- LeetCode ---
-    lc_doc = None
-    for sid in student_id_variants:
-        lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": sid})
-        if lc_doc:
-            break
     if lc_doc:
         lc_calendar = (lc_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
         if isinstance(lc_calendar, dict):
@@ -73,11 +87,6 @@ def _get_submission_dates(student_id, year, month):
                         pass
 
     # --- CodeChef ---
-    cc_doc = None
-    for sid in student_id_variants:
-        cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": sid})
-        if cc_doc:
-            break
     if cc_doc:
         cc_calendar = (cc_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
         if isinstance(cc_calendar, dict):
@@ -87,11 +96,6 @@ def _get_submission_dates(student_id, year, month):
                     active_days.add(day)
 
     # --- HackerRank ---
-    hr_doc = None
-    for sid in student_id_variants:
-        hr_doc = db[COLLECTIONS["hackerrank"]].find_one({"student_id": sid})
-        if hr_doc:
-            break
     if hr_doc:
         hr_calendar = (hr_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
         if isinstance(hr_calendar, dict):
@@ -114,11 +118,11 @@ def _get_daily_task_dates(year, month):
     return {doc["date"] for doc in docs}
 
 
-def _compute_student_attendance(student, year, month, today, days_in_month, task_dates):
+def _compute_student_attendance(student, year, month, today, days_in_month, task_dates, lc_doc=None, cc_doc=None, hr_doc=None):
     """Compute attendance for a single student. Returns a dict with daily status,
     total solves, and attendance rate."""
     student_id = student["_id"]
-    active_days = _get_submission_dates(student_id, year, month)
+    active_days = _get_submission_dates(student_id, year, month, lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc)
 
     daily_status = []
     present_count = 0
@@ -187,9 +191,50 @@ def get_all_attendance():
     students = list(db.students.find(query).sort("name", 1))
     task_dates = _get_daily_task_dates(year, month)
 
+    # Pre-fetch platform profiles in bulk to avoid N+1 queries
+    student_ids = []
+    for s in students:
+        s_id = s.get("_id")
+        if s_id:
+            student_ids.extend([s_id, str(s_id)])
+
+    lc_docs = {}
+    cc_docs = {}
+    hr_docs = {}
+
+    if student_ids:
+        for doc in db[COLLECTIONS["leetcode"]].find({"student_id": {"$in": student_ids}}):
+            sid = doc.get("student_id")
+            if sid:
+                lc_docs[sid] = doc
+                lc_docs[str(sid)] = doc
+
+        for doc in db[COLLECTIONS["codechef"]].find({"student_id": {"$in": student_ids}}):
+            sid = doc.get("student_id")
+            if sid:
+                cc_docs[sid] = doc
+                cc_docs[str(sid)] = doc
+
+        for doc in db[COLLECTIONS["hackerrank"]].find({"student_id": {"$in": student_ids}}):
+            sid = doc.get("student_id")
+            if sid:
+                hr_docs[sid] = doc
+                hr_docs[str(sid)] = doc
+
     results = []
     for student in students:
-        att = _compute_student_attendance(student, year, month, today, days_in_month, task_dates)
+        sid = student["_id"]
+        att = _compute_student_attendance(
+            student,
+            year,
+            month,
+            today,
+            days_in_month,
+            task_dates,
+            lc_doc=lc_docs.get(sid) or lc_docs.get(str(sid)),
+            cc_doc=cc_docs.get(sid) or cc_docs.get(str(sid)),
+            hr_doc=hr_docs.get(sid) or hr_docs.get(str(sid)),
+        )
         results.append(att)
 
     # Collect unique departments and years for filter dropdowns

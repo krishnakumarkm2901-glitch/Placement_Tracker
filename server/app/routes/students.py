@@ -231,8 +231,11 @@ def get_students():
         .limit(limit)
     )
 
+    from app.services.platform_storage import load_platform_data_bulk
+    hydrated = load_platform_data_bulk(students)
+
     return jsonify({
-        "students": [serialize_student_summary(s) for s in students],
+        "students": [serialize_student_summary(s) for s in hydrated],
         "pagination": {
             "page": page,
             "limit": limit,

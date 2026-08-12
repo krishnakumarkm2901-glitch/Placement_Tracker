@@ -47,13 +47,13 @@ def load_platform_data(student):
     student_id = student.get("_id")
     if not student_id:
         return student
-    github = db.github_profiles.find_one({"student_id": student_id})
+    github = db.github_profiles.find_one({"student_id": {"$in": [student_id, str(student_id)]}})
     if github:
         student["github_profile"] = github.get("profile", {})
         student["analytics"] = github.get("analytics", student.get("analytics", {}))
     profiles = dict(student.get("platform_profiles", {}) or {})
     for platform in ("leetcode", "codechef", "hackerrank"):
-        stored = db[COLLECTIONS[platform]].find_one({"student_id": student_id})
+        stored = db[COLLECTIONS[platform]].find_one({"student_id": {"$in": [student_id, str(student_id)]}})
         if stored:
             profiles[platform] = stored.get("profile", {})
     student["platform_profiles"] = profiles

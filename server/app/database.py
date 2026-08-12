@@ -88,6 +88,18 @@ def _create_indexes():
             unique=True,
             partialFilterExpression={"github_username": {"$gt": ""}}
         )
+        _db.students.create_index(
+            "leetcode_username",
+            partialFilterExpression={"leetcode_username": {"$gt": ""}}
+        )
+        _db.students.create_index(
+            "codechef_username",
+            partialFilterExpression={"codechef_username": {"$gt": ""}}
+        )
+        _db.students.create_index(
+            "hackerrank_username",
+            partialFilterExpression={"hackerrank_username": {"$gt": ""}}
+        )
         _db.students.create_index("email", unique=True)
         _db.students.create_index("department")
         _db.students.create_index("year")
