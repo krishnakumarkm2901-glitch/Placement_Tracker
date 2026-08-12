@@ -432,7 +432,9 @@ function DepartmentCompareSection({ students, attendanceMap, platform }) {
                 <Tooltip contentStyle={{ borderRadius: 8 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {platform === 'leetcode' && <Bar dataKey="avg_leetcode" name="Avg LeetCode Solved" fill="#f59e0b" radius={[4, 4, 0, 0]} />}
+                {platform === 'leetcode' && <Bar dataKey="avg_leetcode_easy" name="Avg Easy" fill="#10b981" radius={[4, 4, 0, 0]} />}
                 {platform === 'leetcode' && <Bar dataKey="avg_leetcode_medium" name="Avg Medium" fill="#eab308" radius={[4, 4, 0, 0]} />}
+                {platform === 'leetcode' && <Bar dataKey="avg_leetcode_hard" name="Avg Hard" fill="#ef4444" radius={[4, 4, 0, 0]} />}
                 {platform === 'codechef' && <Bar dataKey="avg_codechef_rating" name="Avg Rating" fill="#f59e0b" radius={[4, 4, 0, 0]} />}
                 {platform === 'codechef' && <Bar dataKey="avg_codechef" name="Avg Solved" fill="#16a34a" radius={[4, 4, 0, 0]} />}
                 {platform === 'hackerrank' && <Bar dataKey="avg_hackerrank_badges" name="Avg Badges" fill="#16a34a" radius={[4, 4, 0, 0]} />}
