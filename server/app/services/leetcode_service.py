@@ -108,7 +108,7 @@ def fetch_leetcode(username):
     metrics = {
         "solved": solved.get("all", 0), "easy": solved.get("easy", 0), "medium": solved.get("medium", 0), "hard": solved.get("hard", 0),
         "ranking": profile.get("ranking"), "contest_rating": round(contest.get("rating") or 0), "contests": contest.get("attendedContestsCount") or 0,
-        "active_days": calendar.get("totalActiveDays") or 0, "current_streak": current_streak, "longest_streak": calendar.get("streak") or 0, "streak": calendar.get("streak") or 0, "badges": len(user.get("badges") or []),
+        "active_days": calendar.get("totalActiveDays") or 0, "current_streak": calendar.get("streak") or 0, "longest_streak": calendar.get("streak") or 0, "streak": calendar.get("streak") or 0, "badges": len(user.get("badges") or []),
         "submissions": total_submissions, "yearly_submissions": yearly_submissions, "acceptance_rate": round(accepted_submissions / total_submissions * 100, 2) if total_submissions else 0,
         "total_questions": question_totals.get("all", 0), "total_easy": question_totals.get("easy", 0), "total_medium": question_totals.get("medium", 0), "total_hard": question_totals.get("hard", 0),
     }
