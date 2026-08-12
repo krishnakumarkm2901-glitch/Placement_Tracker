@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { VscGithubInverted } from 'react-icons/vsc';
 import { SiCodechef, SiHackerrank, SiLeetcode } from 'react-icons/si';
-import { HiOutlineSquares2X2, HiOutlineTrophy, HiOutlineChartBar, HiOutlineClipboardDocumentCheck, HiOutlineMoon, HiOutlineSun, HiOutlineMagnifyingGlass } from 'react-icons/hi2';
+import { HiOutlineSquares2X2, HiOutlineTrophy, HiOutlineChartBar, HiOutlineClipboardDocumentCheck, HiOutlineMoon, HiOutlineSun, HiOutlineMagnifyingGlass, HiOutlineArrowDownTray } from 'react-icons/hi2';
 import { useTheme } from '../../contexts/ThemeContext';
+import usePWA from '../../hooks/usePWA';
 import Footer from './Footer';
 
 const platformLinks = [
@@ -15,6 +16,7 @@ const platformLinks = [
 
 export default function PublicLayout() {
   const { theme, toggleTheme } = useTheme();
+  const { isInstallable, installApp } = usePWA();
   const location = useLocation();
   const navigate = useNavigate();
   const [studentSearch, setStudentSearch] = useState(() => new URLSearchParams(location.search).get('search') || '');
@@ -73,6 +75,17 @@ export default function PublicLayout() {
                 <span className="hidden sm:inline">{link.label}</span>
               </NavLink>
             ))}
+            {isInstallable && (
+              <button
+                type="button"
+                onClick={installApp}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-md text-sm font-semibold text-primary-700 dark:text-primary-300 bg-primary-100/50 dark:bg-primary-500/15 hover:bg-primary-100 dark:hover:bg-primary-500/25 border border-primary-200/50 dark:border-primary-500/25 transition-colors min-h-[44px]"
+                title="Install App"
+              >
+                <HiOutlineArrowDownTray className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                <span className="hidden sm:inline">Install App</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={toggleTheme}

@@ -2,6 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSidebar } from '../../contexts/SidebarContext';
 import { useAuth } from '../../contexts/AuthContext';
+import usePWA from '../../hooks/usePWA';
 import {
   HiOutlineHome,
   HiOutlineUserGroup,
@@ -11,6 +12,7 @@ import {
   HiOutlineAcademicCap,
   HiArrowRightOnRectangle,
   HiXMark,
+  HiOutlineArrowDownTray,
 } from 'react-icons/hi2';
 import { VscGithubInverted } from 'react-icons/vsc';
 import { SiCodechef, SiHackerrank, SiLeetcode } from 'react-icons/si';
@@ -33,6 +35,7 @@ const navItems = [
 export default function Sidebar() {
   const { isOpen, setIsOpen, isCollapsed, closeMobile } = useSidebar();
   const { user, logout } = useAuth();
+  const { isInstallable, installApp } = usePWA();
   const location = useLocation();
   const navigate = useNavigate();
   const visibleNavItems = user?.role === 'admin'
@@ -97,7 +100,17 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-surface-200 dark:border-surface-700">
+      <div className="px-3 py-4 border-t border-surface-200 dark:border-surface-700 space-y-2">
+        {isInstallable && (
+          <button
+            type="button"
+            onClick={installApp}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/10 hover:bg-primary-100 dark:hover:bg-primary-500/20 border border-primary-200/50 dark:border-primary-500/25 transition-all duration-200 shadow-sm"
+          >
+            <HiOutlineArrowDownTray className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+            Install App
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
