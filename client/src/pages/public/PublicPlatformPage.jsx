@@ -102,6 +102,30 @@ export default function PublicPlatformPage({ platform }) {
     select: (res) => res.data,
   });
 
+  const { data: leetcodeDailyChallenge } = useQuery({
+    queryKey: ['leetcode-daily-challenge-public'],
+    queryFn: () => dailyTasksAPI.getLeetCodeDaily(),
+    enabled: platform === 'leetcode',
+    select: (res) => res.data,
+  });
+
+  const leetcodeDailyDoneCount = useMemo(() => {
+    if (platform !== 'leetcode' || !leetcodeDailyChallenge?.titleSlug || !profiles.length) return 0;
+    const targetSlug = leetcodeDailyChallenge.titleSlug.toLowerCase();
+    
+    return profiles.filter((student) => {
+      const profile = student.platform_profiles?.leetcode || {};
+      const raw = profile.raw || {};
+      const submissions = raw.recent_submissions || [];
+      return submissions.some((sub) => {
+        const status = String(sub.statusDisplay || sub.status || '').toLowerCase();
+        const isAccepted = !status || status === 'accepted';
+        if (!isAccepted) return false;
+        return String(sub.titleSlug || '').toLowerCase() === targetSlug;
+      });
+    }).length;
+  }, [platform, leetcodeDailyChallenge, profiles]);
+
   // Early return AFTER all hooks have been called
   if (platform === 'leetcode' && mode === 'dashboard') {
     return <LeetCodeStudentDashboard />;
@@ -136,7 +160,7 @@ export default function PublicPlatformPage({ platform }) {
           <div />
           <div className="space-y-4">
             <DailyTasksCard platform={platform} date={todayTasks?.date} problems={todayTasks?.problems} onOpenHistory={() => setHistoryOpen(true)} />
-            <LeetCodeChallengeCard problem={todayTasks?.problems?.[0]} className="max-w-md ml-auto w-full" classCompletion={{ done: 0, total: 247 }} />
+            <LeetCodeChallengeCard problem={leetcodeDailyChallenge} className="max-w-md ml-auto w-full" classCompletion={{ done: leetcodeDailyDoneCount, total: profiles.length }} />
             <div className="glass-card-solid p-4 sm:p-5 max-w-md ml-auto">
               <h4 className="font-semibold text-surface-900">Milestones & Logs</h4>
               <ul className="mt-3 text-sm text-surface-600 space-y-2">

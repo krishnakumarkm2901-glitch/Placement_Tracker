@@ -64,31 +64,85 @@ def get_today_tasks():
     date = request.args.get("date") or _today_string()
     doc = db.daily_tasks.find_one({"platform": platform, "date": date})
     if not doc:
-        # No tasks set for today – try fetching LeetCode's active daily challenge
-        if platform == 'leetcode':
-            try:
-                query = '''query { activeDailyCodingChallengeQuestion { date question { questionId title titleSlug difficulty } } }'''
-                resp = requests.post('https://leetcode.com/graphql', json={'query': query}, headers={'Content-Type': 'application/json'}, timeout=5)
-                data = resp.json()
-                q = data.get('data', {}).get('activeDailyCodingChallengeQuestion', {}) or {}
-                question = q.get('question')
-                if question:
-                    prob = {
-                        'id': question.get('questionId'),
-                        'title': question.get('title'),
-                        'url': f"https://leetcode.com/problems/{question.get('titleSlug')}/",
-                        'difficulty': question.get('difficulty')
-                    }
-                    return jsonify({"date": date, "platform": platform, "problems": [prob]}), 200
-            except Exception:
-                # ignore network/parse errors and fall through to empty response
-                pass
         return jsonify({"date": date, "platform": platform, "problems": []}), 200
     doc.pop("_id", None)
     # convert datetimes
     if "updated_at" in doc and hasattr(doc["updated_at"], "isoformat"):
         doc["updated_at"] = doc["updated_at"].isoformat()
     return jsonify(doc), 200
+
+
+@daily_tasks_bp.route("/leetcode-daily", methods=["GET"])
+@rate_limit()
+def get_leetcode_daily_challenge():
+    """Fetch the actual LeetCode Daily Challenge for today from LeetCode or cache."""
+    date_str = request.args.get("date") or _today_string()
+    
+    # 1. Try to find in cache
+    try:
+        cached = db.leetcode_daily_challenge.find_one({"date": date_str})
+        if cached:
+            cached.pop("_id", None)
+            return jsonify(cached), 200
+    except Exception:
+        pass
+
+    # 2. If not cached, fetch from LeetCode GraphQL
+    try:
+        query = """
+        query {
+            activeDailyCodingChallengeQuestion {
+                date
+                link
+                question {
+                    questionId
+                    questionFrontendId
+                    title
+                    titleSlug
+                    difficulty
+                }
+            }
+        }
+        """
+        resp = requests.post(
+            'https://leetcode.com/graphql',
+            json={'query': query},
+            headers={'Content-Type': 'application/json'},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            q = data.get('data', {}).get('activeDailyCodingChallengeQuestion', {}) or {}
+            question = q.get('question')
+            if question:
+                frontend_id = question.get('questionFrontendId') or question.get('questionId')
+                title = question.get('title')
+                slug = question.get('titleSlug')
+                difficulty = question.get('difficulty')
+                
+                if title and slug:
+                    challenge_doc = {
+                        "date": date_str,
+                        "id": str(frontend_id),
+                        "title": title,
+                        "titleSlug": slug,
+                        "difficulty": difficulty or "Medium",
+                        "url": f"https://leetcode.com/problems/{slug}/"
+                    }
+                    # Save to cache
+                    try:
+                        db.leetcode_daily_challenge.update_one(
+                            {"date": date_str},
+                            {"$set": challenge_doc},
+                            upsert=True
+                        )
+                    except Exception:
+                        pass
+                    return jsonify(challenge_doc), 200
+    except Exception:
+        pass
+        
+    return jsonify({"error": "Failed to fetch LeetCode daily challenge"}), 500
 
 
 @daily_tasks_bp.route("", methods=["GET"])

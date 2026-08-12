@@ -9,6 +9,7 @@ import {
   HiOutlineBell,
   HiOutlineChartBar
 } from 'react-icons/hi2';
+import { useAuth } from '../../contexts/AuthContext';
 import studentsAPI from '../../api/students';
 import dailyTasksAPI from '../../api/dailyTasks';
 import Avatar from '../../components/ui/Avatar';
@@ -18,6 +19,7 @@ import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 
 export default function LeetCodeStudentDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
 
   // Track today's date string so queries and display reset at midnight
@@ -46,6 +48,14 @@ export default function LeetCodeStudentDashboard() {
   const { data: todayTasksData } = useQuery({
     queryKey: ['daily-tasks', 'today', 'leetcode', todayDateStr],
     queryFn: () => dailyTasksAPI.getToday('leetcode'),
+    select: (res) => res.data,
+    refetchInterval: 60000,
+  });
+
+  // Fetch actual LeetCode Daily Challenge directly
+  const { data: leetcodeDailyData, isLoading: isLoadingDaily, isError: isDailyError } = useQuery({
+    queryKey: ['leetcode-daily-challenge-dashboard', todayDateStr],
+    queryFn: () => dailyTasksAPI.getLeetCodeDaily(),
     select: (res) => res.data,
     refetchInterval: 60000,
   });
@@ -191,13 +201,55 @@ export default function LeetCodeStudentDashboard() {
 
   // LeetCode Daily Challenge Question
   const dailyChallenge = useMemo(() => {
-    const problem = todayTasksData?.problems?.[0];
+    if (!leetcodeDailyData) return null;
     return {
-      title: problem?.title || 'Remove Methods From Project',
-      difficulty: problem?.difficulty || 'Medium',
-      url: problem?.url || 'https://leetcode.com/problems/remove-methods-from-project/',
+      id: leetcodeDailyData.id,
+      title: leetcodeDailyData.title,
+      titleSlug: leetcodeDailyData.titleSlug,
+      difficulty: leetcodeDailyData.difficulty || 'Medium',
+      url: leetcodeDailyData.url || `https://leetcode.com/problems/${leetcodeDailyData.titleSlug}/`,
     };
-  }, [todayTasksData]);
+  }, [leetcodeDailyData]);
+
+  // Check if current user completed the LeetCode daily challenge
+  const userSolvedDaily = useMemo(() => {
+    if (!user?.student_id || !students.length || !dailyChallenge?.titleSlug) return false;
+    const targetSlug = dailyChallenge.titleSlug.toLowerCase();
+    const student = students.find((s) => s.id === user.student_id || s._id === user.student_id);
+    if (!student) return false;
+    
+    const profile = student.platform_profiles?.leetcode || {};
+    const raw = profile.raw || {};
+    const submissions = raw.recent_submissions || [];
+    return submissions.some((sub) => {
+      const status = String(sub.statusDisplay || sub.status || '').toLowerCase();
+      const isAccepted = !status || status === 'accepted';
+      if (!isAccepted) return false;
+      return String(sub.titleSlug || '').toLowerCase() === targetSlug;
+    });
+  }, [user, students, dailyChallenge]);
+
+  // Calculate dynamic Class Completion
+  const classCompletion = useMemo(() => {
+    if (!students.length || !dailyChallenge?.titleSlug) return { done: 0, total: 0 };
+    const targetSlug = dailyChallenge.titleSlug.toLowerCase();
+    
+    let done = 0;
+    students.forEach((student) => {
+      const profile = student.platform_profiles?.leetcode || {};
+      const raw = profile.raw || {};
+      const submissions = raw.recent_submissions || [];
+      const solved = submissions.some((sub) => {
+        const status = String(sub.statusDisplay || sub.status || '').toLowerCase();
+        const isAccepted = !status || status === 'accepted';
+        if (!isAccepted) return false;
+        return String(sub.titleSlug || '').toLowerCase() === targetSlug;
+      });
+      if (solved) done++;
+    });
+    
+    return { done, total: students.length };
+  }, [students, dailyChallenge]);
 
   // Total students count
   const totalStudentsCount = students.length || 247;
@@ -409,28 +461,57 @@ export default function LeetCodeStudentDashboard() {
               ⚡ LEETCODE DAILY CHALLENGE
             </span>
 
-            <h3 className="text-xl sm:text-2xl font-black text-surface-900 dark:text-white tracking-tight mb-2">
-              {dailyChallenge.title}
-            </h3>
+            {isLoadingDaily ? (
+              <div className="py-6 flex flex-col items-center justify-center space-y-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500"></div>
+                <p className="text-sm text-surface-500">Loading daily challenge...</p>
+              </div>
+            ) : isDailyError || !dailyChallenge ? (
+              <div className="py-6 text-center">
+                <p className="text-sm text-rose-500 font-semibold">Unable to load LeetCode Daily Challenge.</p>
+                <p className="text-xs text-surface-400 mt-1">Please try again later or check your network.</p>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-xl sm:text-2xl font-black text-surface-900 dark:text-white tracking-tight mb-2">
+                  {dailyChallenge.id ? `${dailyChallenge.id}. ` : ''}{dailyChallenge.title}
+                </h3>
 
-            <div className="mb-5">
-              <span className="bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold px-3.5 py-0.5 rounded-md text-xs inline-block border border-amber-400/30">
-                {dailyChallenge.difficulty}
-              </span>
-            </div>
+                <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
+                  <span className="bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold px-3.5 py-0.5 rounded-md text-xs inline-block border border-amber-400/30">
+                    {dailyChallenge.difficulty}
+                  </span>
+                  {user?.student_id && (
+                    userSolvedDaily ? (
+                      <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold px-3.5 py-0.5 rounded-md text-xs inline-block border border-emerald-500/30">
+                        ✓ Solved
+                      </span>
+                    ) : (
+                      <span className="bg-orange-500/15 text-orange-700 dark:text-orange-400 font-bold px-3.5 py-0.5 rounded-md text-xs inline-block border border-orange-400/30">
+                        Pending
+                      </span>
+                    )
+                  )}
+                </div>
 
-            <a
-              href={dailyChallenge.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all text-base mb-4 cursor-pointer"
-            >
-              Solve Challenge <HiOutlineArrowTopRightOnSquare className="w-5 h-5" />
-            </a>
+                <a
+                  href={dailyChallenge.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full font-bold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all text-base mb-4 cursor-pointer ${
+                    userSolvedDaily
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-teal-500 hover:bg-teal-600 text-white'
+                  }`}
+                >
+                  {userSolvedDaily ? 'Challenge Solved! 🎉' : 'Solve Challenge'} <HiOutlineArrowTopRightOnSquare className="w-5 h-5" />
+                </a>
 
-            <p className="text-xs sm:text-sm font-semibold text-surface-500 dark:text-surface-400">
-              Class Completion: <span className="font-extrabold text-teal-600 dark:text-teal-400">0 / {totalStudentsCount}</span>
-            </p>
+                <p className="text-xs sm:text-sm font-semibold text-surface-500 dark:text-surface-400">
+                  Class Completion: <span className="font-extrabold text-teal-600 dark:text-teal-400">{classCompletion.done} / {classCompletion.total}</span>
+                </p>
+              </>
+            )}
           </Card>
 
           {/* Card 3: Milestones & Logs */}
