@@ -169,7 +169,14 @@ function AttendanceRow({ student, daysInMonth, index }) {
       </td>
       {student.daily.map((d) => (
         <td key={d.day} className="px-1 py-3 text-center">
-          <StatusIcon status={d.status} />
+          <StatusIcon
+            status={d.status}
+            leetcode={d.leetcode}
+            codechef={d.codechef}
+            hackerrank={d.hackerrank}
+            dailyTask={d.daily_task}
+            platformSolved={d.platform_solved}
+          />
         </td>
       ))}
       <td className={`px-3 py-3 text-center font-bold tabular-nums ${solvesColor}`}>
@@ -183,10 +190,27 @@ function AttendanceRow({ student, daysInMonth, index }) {
 }
 
 
-function StatusIcon({ status }) {
+function StatusIcon({ status, leetcode = 0, codechef = 0, hackerrank = 0, dailyTask = false, platformSolved = 0 }) {
+  // Build tooltip text showing platform breakdown
+  const buildTooltip = () => {
+    if (status === 'future') return 'Upcoming';
+    const parts = [];
+    if (leetcode > 0) parts.push(`LC: ${leetcode}`);
+    if (hackerrank > 0) parts.push(`HR: ${hackerrank}`);
+    if (codechef > 0) parts.push(`CC: ${codechef}`);
+    if (dailyTask) parts.push('Task: ✓');
+    if (parts.length === 0) {
+      return status === 'present' ? 'Present (daily task)' : 'Absent — no activity';
+    }
+    return parts.join(' · ');
+  };
+
   if (status === 'present') {
     return (
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/15" title="Present">
+      <span
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 cursor-help"
+        title={buildTooltip()}
+      >
         <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
         </svg>
@@ -195,7 +219,10 @@ function StatusIcon({ status }) {
   }
   if (status === 'absent') {
     return (
-      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 dark:bg-red-500/15" title="Absent">
+      <span
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 dark:bg-red-500/15 cursor-help"
+        title={buildTooltip()}
+      >
         <svg className="w-3.5 h-3.5 text-red-500 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
