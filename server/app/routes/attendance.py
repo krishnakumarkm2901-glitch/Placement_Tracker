@@ -5,12 +5,14 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 import calendar as cal
+import logging
 
 from app.extensions import db
 from app.utils.decorators import admin_required, rate_limit
 from app.services.platform_storage import COLLECTIONS
 
 attendance_bp = Blueprint("attendance", __name__)
+logger = logging.getLogger("placement_tracker.attendance")
 
 
 def _get_submission_dates(student_id, year, month, lc_doc=None, cc_doc=None, hr_doc=None):
@@ -41,34 +43,7 @@ def _get_submission_dates(student_id, year, month, lc_doc=None, cc_doc=None, hr_
             ts = int(dt.timestamp())
             month_timestamps[str(ts)] = day
 
-    # Try both ObjectId and string forms of student_id only if profiles are missing
-    if lc_doc is None or cc_doc is None or hr_doc is None:
-        student_id_variants = [student_id]
-        if isinstance(student_id, ObjectId):
-            student_id_variants.append(str(student_id))
-        elif isinstance(student_id, str):
-            try:
-                student_id_variants.append(ObjectId(student_id))
-            except Exception:
-                pass
 
-        if lc_doc is None:
-            for sid in student_id_variants:
-                lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": sid})
-                if lc_doc:
-                    break
-
-        if cc_doc is None:
-            for sid in student_id_variants:
-                cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": sid})
-                if cc_doc:
-                    break
-
-        if hr_doc is None:
-            for sid in student_id_variants:
-                hr_doc = db[COLLECTIONS["hackerrank"]].find_one({"student_id": sid})
-                if hr_doc:
-                    break
 
     # --- LeetCode ---
     if lc_doc:
@@ -203,23 +178,32 @@ def get_all_attendance():
     hr_docs = {}
 
     if student_ids:
-        for doc in db[COLLECTIONS["leetcode"]].find({"student_id": {"$in": student_ids}}):
-            sid = doc.get("student_id")
-            if sid:
-                lc_docs[sid] = doc
-                lc_docs[str(sid)] = doc
+        try:
+            for doc in db[COLLECTIONS["leetcode"]].find({"student_id": {"$in": student_ids}}, maxTimeMS=5000):
+                sid = doc.get("student_id")
+                if sid:
+                    lc_docs[sid] = doc
+                    lc_docs[str(sid)] = doc
+        except Exception as err:
+            logger.error("Error pre-fetching LeetCode profiles in bulk: %s", str(err))
 
-        for doc in db[COLLECTIONS["codechef"]].find({"student_id": {"$in": student_ids}}):
-            sid = doc.get("student_id")
-            if sid:
-                cc_docs[sid] = doc
-                cc_docs[str(sid)] = doc
+        try:
+            for doc in db[COLLECTIONS["codechef"]].find({"student_id": {"$in": student_ids}}, maxTimeMS=5000):
+                sid = doc.get("student_id")
+                if sid:
+                    cc_docs[sid] = doc
+                    cc_docs[str(sid)] = doc
+        except Exception as err:
+            logger.error("Error pre-fetching CodeChef profiles in bulk: %s", str(err))
 
-        for doc in db[COLLECTIONS["hackerrank"]].find({"student_id": {"$in": student_ids}}):
-            sid = doc.get("student_id")
-            if sid:
-                hr_docs[sid] = doc
-                hr_docs[str(sid)] = doc
+        try:
+            for doc in db[COLLECTIONS["hackerrank"]].find({"student_id": {"$in": student_ids}}, maxTimeMS=5000):
+                sid = doc.get("student_id")
+                if sid:
+                    hr_docs[sid] = doc
+                    hr_docs[str(sid)] = doc
+        except Exception as err:
+            logger.error("Error pre-fetching HackerRank profiles in bulk: %s", str(err))
 
     results = []
     for student in students:
@@ -287,7 +271,36 @@ def get_student_attendance(student_id):
     today = now.date()
     task_dates = _get_daily_task_dates(year, month)
 
-    att = _compute_student_attendance(student, year, month, today, days_in_month, task_dates)
+    lc_doc = None
+    cc_doc = None
+    hr_doc = None
+
+    try:
+        lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": {"$in": [ObjectId(student_id), str(student_id)]}}, maxTimeMS=5000)
+    except Exception as err:
+        logger.error("Error fetching LeetCode profile for student %s: %s", student_id, str(err))
+
+    try:
+        cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": {"$in": [ObjectId(student_id), str(student_id)]}}, maxTimeMS=5000)
+    except Exception as err:
+        logger.error("Error fetching CodeChef profile for student %s: %s", student_id, str(err))
+
+    try:
+        hr_doc = db[COLLECTIONS["hackerrank"]].find_one({"student_id": {"$in": [ObjectId(student_id), str(student_id)]}}, maxTimeMS=5000)
+    except Exception as err:
+        logger.error("Error fetching HackerRank profile for student %s: %s", student_id, str(err))
+
+    att = _compute_student_attendance(
+        student,
+        year,
+        month,
+        today,
+        days_in_month,
+        task_dates,
+        lc_doc=lc_doc,
+        cc_doc=cc_doc,
+        hr_doc=hr_doc,
+    )
     att["days_in_month"] = days_in_month
 
     return jsonify(att), 200

@@ -22,11 +22,12 @@ export default function AttendancePage() {
   });
   const [applied, setApplied] = useState({ ...filters });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance-admin', applied],
     queryFn: () => attendanceAPI.getAll(applied),
     select: (res) => res.data,
     staleTime: 2 * 60 * 1000,
+    retry: 1,
   });
 
   const students = data?.students || [];
@@ -69,7 +70,25 @@ export default function AttendancePage() {
       </div>
 
       {/* Table */}
-      {isLoading ? (
+      {isError ? (
+        <Card className="p-8 border border-red-100 dark:border-red-500/20 bg-red-50/20 dark:bg-red-500/5 rounded-2xl shadow-sm">
+          <div className="flex flex-col items-center justify-center text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center text-xl font-bold">
+              ⚠️
+            </div>
+            <h3 className="text-base font-semibold text-red-800 dark:text-red-400">Failed to load attendance data</h3>
+            <p className="text-sm text-red-600/80 dark:text-red-400/60 max-w-md">
+              There was a problem connecting to the server. A database query may have timed out or failed. Please try again.
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="mt-2 px-5 py-2 text-sm font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/10 hover:shadow-lg transition-all"
+            >
+              Retry
+            </button>
+          </div>
+        </Card>
+      ) : isLoading ? (
         <LoadingSpinner message="Computing attendance data..." />
       ) : students.length === 0 ? (
         <Card>

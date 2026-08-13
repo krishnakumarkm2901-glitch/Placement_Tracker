@@ -25,12 +25,13 @@ export default function StudentAttendancePage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance-student', user?.student_id, month, year],
     queryFn: () => attendanceAPI.getStudent(user.student_id, { month, year }),
     select: (res) => res.data,
     enabled: Boolean(user?.student_id),
     staleTime: 2 * 60 * 1000,
+    retry: 1,
   });
 
   const goBack = () => {
@@ -135,7 +136,23 @@ export default function StudentAttendancePage() {
           </button>
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="p-6 border border-red-100 dark:border-red-500/20 bg-red-50/25 dark:bg-red-500/5 rounded-xl text-center">
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-2xl">⚠️</span>
+              <p className="text-sm font-medium text-red-800 dark:text-red-400">Failed to load attendance records</p>
+              <p className="text-xs text-red-500 dark:text-red-500/70 max-w-sm">
+                There was a problem querying the database for your attendance. Please try again.
+              </p>
+              <button
+                onClick={() => refetch()}
+                className="mt-2 px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ) : isLoading ? (
           <LoadingSpinner message="Loading attendance..." />
         ) : (
           <motion.div
