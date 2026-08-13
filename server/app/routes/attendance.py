@@ -304,3 +304,63 @@ def get_student_attendance(student_id):
     att["days_in_month"] = days_in_month
 
     return jsonify(att), 200
+
+
+@attendance_bp.route("/diag", methods=["GET"])
+def attendance_diag():
+    try:
+        students = list(db.students.find({"is_active": True}))
+        student_count = len(students)
+        
+        lc_count = db[COLLECTIONS["leetcode"]].count_documents({})
+        cc_count = db[COLLECTIONS["codechef"]].count_documents({})
+        hr_count = db[COLLECTIONS["hackerrank"]].count_documents({})
+        
+        student_ids = []
+        for s in students:
+            s_id = s.get("_id")
+            if s_id:
+                student_ids.append(s_id)
+                student_ids.append(str(s_id))
+                if isinstance(s_id, str):
+                    try:
+                        student_ids.append(ObjectId(s_id))
+                    except Exception:
+                        pass
+                        
+        lc_bulk = list(db[COLLECTIONS["leetcode"]].find({"student_id": {"$in": student_ids}}))
+        cc_bulk = list(db[COLLECTIONS["codechef"]].find({"student_id": {"$in": student_ids}}))
+        
+        sample_student = students[0] if students else None
+        sample_lc_doc = None
+        sample_cc_doc = None
+        if sample_student:
+            sample_lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": sample_student["_id"]})
+            if not sample_lc_doc:
+                sample_lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": str(sample_student["_id"])})
+            
+            sample_cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": sample_student["_id"]})
+            if not sample_cc_doc:
+                sample_cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": str(sample_student["_id"])})
+                
+        return jsonify({
+            "student_count": student_count,
+            "leetcode_count": lc_count,
+            "codechef_count": cc_count,
+            "hackerrank_count": hr_count,
+            "leetcode_bulk_found": len(lc_bulk),
+            "codechef_bulk_found": len(cc_bulk),
+            "sample_student": {
+                "name": sample_student.get("name") if sample_student else None,
+                "id": str(sample_student["_id"]) if sample_student else None,
+                "id_type": str(type(sample_student["_id"])) if sample_student else None,
+                "has_lc_profile": sample_lc_doc is not None,
+                "lc_profile_sid": str(sample_lc_doc.get("student_id")) if sample_lc_doc else None,
+                "lc_profile_sid_type": str(type(sample_lc_doc.get("student_id"))) if sample_lc_doc else None,
+                "has_cc_profile": sample_cc_doc is not None,
+                "cc_profile_sid": str(sample_cc_doc.get("student_id")) if sample_cc_doc else None,
+                "cc_profile_sid_type": str(type(sample_cc_doc.get("student_id"))) if sample_cc_doc else None,
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
