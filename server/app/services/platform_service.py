@@ -39,19 +39,28 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
 
         # Check if we have valid previously-synced data to preserve
         old_profile = current_profiles.get(platform_name)
-        if old_profile and old_profile.get("status") == "synced" and old_profile.get("username") == username:
-            # Preserve existing synced data on transient error
-            return platform_name, old_profile, None
+        if old_profile and old_profile.get("username") == username:
+            metrics = old_profile.get("metrics") or {}
+            raw = old_profile.get("raw") or {}
+            if any(val for k, val in metrics.items() if k not in ("rating", "current_streak", "longest_streak") and val) or metrics.get("rating", 1000) != 1000 or raw.get("submission_calendar"):
+                old_profile["status"] = "synced"
+                old_profile["error"] = str(exc)
+                old_profile["last_synced"] = timestamp
+                return platform_name, old_profile, None
 
         # Also check the dedicated platform collection for valid data
         try:
-            stored_doc = db[COLLECTIONS[platform_name]].find_one({"student_id": student_id})
-            if not stored_doc:
-                stored_doc = db[COLLECTIONS[platform_name]].find_one({"student_id": ObjectId(student_id)})
+            stored_doc = db[COLLECTIONS[platform_name]].find_one({"student_id": {"$in": [student_id, str(student_id)]}})
             if stored_doc:
-                stored_profile = stored_doc.get("profile")
-                if stored_profile and stored_profile.get("status") == "synced":
-                    return platform_name, stored_profile, None
+                stored_profile = stored_doc.get("profile") or {}
+                if stored_profile and stored_profile.get("username") == username:
+                    metrics = stored_profile.get("metrics") or {}
+                    raw = stored_profile.get("raw") or {}
+                    if any(val for k, val in metrics.items() if k not in ("rating", "current_streak", "longest_streak") and val) or metrics.get("rating", 1000) != 1000 or raw.get("submission_calendar"):
+                        stored_profile["status"] = "synced"
+                        stored_profile["error"] = str(exc)
+                        stored_profile["last_synced"] = timestamp
+                        return platform_name, stored_profile, None
         except Exception:
             pass
 
