@@ -90,3 +90,14 @@ htmlcov/
 *.zip
 *.tar
 .eslintcache
+
+*.keystore
+*.jks
+.gradle/
+**/.gradle/
+**/build/
+*.apk
+*.aab
+*.idsig
+
+
