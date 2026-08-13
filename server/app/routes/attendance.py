@@ -364,11 +364,15 @@ def attendance_diag():
             act_days = _get_submission_dates(tsid, 2026, 8, lc_doc=lc_doc, cc_doc=cc_doc)
             active_days_computed = list(act_days)
             
+            # Map lookups trace
+            lc_doc_from_map = lc_docs.get(tsid) or lc_docs.get(str(tsid))
+            
             lookup_trace = {
                 "name": target_student.get("name"),
                 "id_repr": repr(tsid),
                 "id_type": str(type(tsid)),
-                "lc_doc_found": lc_doc is not None,
+                "lc_doc_found_directly": lc_doc is not None,
+                "lc_doc_found_in_map": lc_doc_from_map is not None,
                 "cc_doc_found": cc_doc is not None,
                 "active_days_computed": active_days_computed,
             }
