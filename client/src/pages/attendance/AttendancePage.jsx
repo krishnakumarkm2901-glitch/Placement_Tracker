@@ -71,7 +71,7 @@ export default function AttendancePage() {
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6">
         <div className="flex items-start gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-teal-500/20">
             <HiOutlineClipboardDocumentCheck className="w-6 h-6" />
@@ -86,7 +86,7 @@ export default function AttendancePage() {
         </div>
 
         {/* Action Controls & Filters */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
           <FilterSelect label="Dept" value={filters.department} onChange={(v) => setFilters((p) => ({ ...p, department: v }))} options={['All', ...departments]} />
           <FilterSelect label="Year" value={filters.student_year} onChange={(v) => setFilters((p) => ({ ...p, student_year: v }))} options={['All', ...years]} />
           <FilterSelect label="Month" value={filters.month} onChange={(v) => setFilters((p) => ({ ...p, month: Number(v) }))} options={MONTHS.map((m, i) => ({ label: m, value: i + 1 }))} />
@@ -95,7 +95,7 @@ export default function AttendancePage() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleApply}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               Apply
             </button>
@@ -104,7 +104,7 @@ export default function AttendancePage() {
               <button
                 onClick={() => refreshMutation.mutate()}
                 disabled={refreshMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all cursor-pointer disabled:opacity-50"
                 title="Recalculate and fetch latest platform attendance"
               >
                 <HiOutlineArrowPath className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin text-teal-500' : ''}`} />
