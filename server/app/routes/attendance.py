@@ -395,6 +395,14 @@ def attendance_diag():
         for k in list(lc_docs.keys())[:6]:
             lc_keys.append({"key_repr": repr(k), "key_type": str(type(k))})
 
+        # List indexes
+        lc_indexes = list(db[COLLECTIONS["leetcode"]].list_indexes())
+        cc_indexes = list(db[COLLECTIONS["codechef"]].list_indexes())
+        
+        # Format indexes for JSON serialization
+        lc_idx_info = [{"name": idx["name"], "key": list(idx["key"].items())} for idx in lc_indexes]
+        cc_idx_info = [{"name": idx["name"], "key": list(idx["key"].items())} for idx in cc_indexes]
+
         return jsonify({
             "student_count": student_count,
             "leetcode_count": lc_count,
@@ -404,6 +412,8 @@ def attendance_diag():
             "codechef_bulk_found": len(cc_bulk),
             "lc_docs_keys_sample": lc_keys,
             "lookup_trace": lookup_trace,
+            "leetcode_indexes": lc_idx_info,
+            "codechef_indexes": cc_idx_info,
             "sample_student": {
                 "name": sample_student.get("name") if sample_student else None,
                 "id": str(sample_student["_id"]) if sample_student else None,
