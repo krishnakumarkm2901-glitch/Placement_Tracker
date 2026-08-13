@@ -105,104 +105,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Real Student Streaks & Daily Activity Card */}
+      {/* Real Student Streaks & Daily Activity Card Removed — Graphs only */}
       {isDashLoading ? (
         <LoadingSpinner message="Loading dashboard statistics..." />
       ) : (
         <div className="space-y-8">
-          {studentStreaks.length > 0 && (
-            <Card padding={false} className="overflow-hidden border border-surface-200 dark:border-surface-700 shadow-sm">
-              <div className="p-5 border-b border-surface-200 dark:border-surface-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-50/50 dark:bg-surface-800/40">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center">
-                    <HiOutlineFire className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-surface-900 dark:text-white">
-                      Student Streaks & Today's Activity
-                    </h2>
-                    <p className="text-xs text-surface-500 dark:text-surface-400">
-                      Calculated from IST date boundaries counting backwards from today.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-surface-500">
-                  <HiOutlineClock className="w-4 h-4 text-surface-400" />
-                  <span>Live IST Date: <strong>{new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</strong></span>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface-100/70 dark:bg-surface-800/60 text-surface-600 dark:text-surface-300 border-b border-surface-200 dark:border-surface-700 uppercase tracking-wider font-extrabold">
-                      <th className="py-3 px-4 min-w-[160px]">Student</th>
-                      <th className="py-3 px-3 text-center">LeetCode Today</th>
-                      <th className="py-3 px-3 text-center">HackerRank Today</th>
-                      <th className="py-3 px-3 text-center">CodeChef Today</th>
-                      <th className="py-3 px-3 text-center">Current Streak 🔥</th>
-                      <th className="py-3 px-3 text-center">Last Active</th>
-                      <th className="py-3 px-4 text-right">Last Synced</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-100 dark:divide-surface-800">
-                    {studentStreaks.map((s) => (
-                      <tr key={s.student_id} className="hover:bg-surface-50/60 dark:hover:bg-surface-800/40 transition-colors">
-                        <td className="py-3 px-4 font-bold text-surface-900 dark:text-white whitespace-nowrap">
-                          {s.name}
-                          <span className="block text-[10px] font-normal text-surface-400">{s.department} · Year {s.year}</span>
-                        </td>
-                        <td className="py-3 px-3 text-center font-bold">
-                          {s.leetcode_today > 0 ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                              +{s.leetcode_today}
-                            </span>
-                          ) : (
-                            <span className="text-surface-400">0</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center font-bold">
-                          {s.hackerrank_today > 0 ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                              +{s.hackerrank_today}
-                            </span>
-                          ) : (
-                            <span className="text-surface-400">0</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center font-bold">
-                          {s.codechef_today > 0 ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                              +{s.codechef_today}
-                            </span>
-                          ) : (
-                            <span className="text-surface-400">0</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center font-extrabold text-sm">
-                          {s.current_streak > 0 ? (
-                            <span className="text-orange-600 dark:text-orange-400 inline-flex items-center gap-0.5">
-                              {s.current_streak} <HiOutlineFire className="w-4 h-4 text-orange-500" />
-                            </span>
-                          ) : (
-                            <span className="text-surface-400 font-medium">0 🔥</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center text-surface-600 dark:text-surface-400 font-medium">
-                          {s.last_activity_date || 'No activity'}
-                        </td>
-                        <td className="py-3 px-4 text-right text-surface-400 whitespace-nowrap">
-                          {s.last_updated ? new Date(s.last_updated).toLocaleString() : 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {platformCharts
