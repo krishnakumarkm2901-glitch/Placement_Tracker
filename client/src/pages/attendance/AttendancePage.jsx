@@ -71,7 +71,7 @@ export default function AttendancePage() {
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div className="flex items-start gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-teal-500/20">
             <HiOutlineClipboardDocumentCheck className="w-6 h-6" />
