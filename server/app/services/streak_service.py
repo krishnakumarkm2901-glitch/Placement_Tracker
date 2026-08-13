@@ -63,11 +63,12 @@ def get_active_dates_date_str(doc):
     return active_dates
 
 
-def get_daily_task_completed_dates(student_id, lc_doc=None, cc_doc=None, hr_doc=None):
+def get_daily_task_completed_dates(student_id, lc_doc=None, cc_doc=None, hr_doc=None, tasks=None):
     """Get dates where student completed portal's assigned daily tasks."""
     completed = set()
     try:
-        tasks = list(db.daily_tasks.find({}))
+        if tasks is None:
+            tasks = list(db.daily_tasks.find({}))
         if not tasks:
             return completed
 
@@ -143,7 +144,7 @@ def compute_consecutive_streak(active_dates, today_ist=None):
     return current_streak, longest_streak
 
 
-def calculate_student_streaks(student, lc_doc=None, cc_doc=None, hr_doc=None):
+def calculate_student_streaks(student, lc_doc=None, cc_doc=None, hr_doc=None, tasks=None):
     """
     Full streak metrics for a student.
     """
@@ -163,7 +164,7 @@ def calculate_student_streaks(student, lc_doc=None, cc_doc=None, hr_doc=None):
     lc_dates = get_active_dates_lc(lc_doc)
     cc_dates = get_active_dates_date_str(cc_doc)
     hr_dates = get_active_dates_date_str(hr_doc)
-    task_dates = get_daily_task_completed_dates(sid, lc_doc, cc_doc, hr_doc)
+    task_dates = get_daily_task_completed_dates(sid, lc_doc, cc_doc, hr_doc, tasks=tasks)
 
     lc_curr, lc_long = compute_consecutive_streak(lc_dates, today_ist)
     cc_curr, cc_long = compute_consecutive_streak(cc_dates, today_ist)

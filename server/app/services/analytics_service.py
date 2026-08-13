@@ -206,6 +206,9 @@ def get_dashboard_stats():
     cc_docs = {doc.get("student_id"): doc for doc in db[COLLECTIONS["codechef"]].find({"student_id": {"$in": id_variants}})}
     hr_docs = {doc.get("student_id"): doc for doc in db[COLLECTIONS["hackerrank"]].find({"student_id": {"$in": id_variants}})}
 
+    # Bulk fetch daily tasks once instead of querying in the loop
+    tasks = list(db.daily_tasks.find({}))
+
     student_streaks = []
     for student in student_documents:
         sid = student.get("_id")
@@ -215,7 +218,7 @@ def get_dashboard_stats():
         cc_doc = cc_docs.get(sid) or cc_docs.get(str(sid))
         hr_doc = hr_docs.get(sid) or hr_docs.get(str(sid))
 
-        streak_data = calculate_student_streaks(student, lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc)
+        streak_data = calculate_student_streaks(student, lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc, tasks=tasks)
         student_streaks.append({
             "student_id": str(sid),
             "name": student.get("name", ""),

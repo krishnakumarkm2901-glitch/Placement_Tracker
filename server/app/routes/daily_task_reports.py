@@ -49,22 +49,8 @@ def _slug_from_title(title, platform):
     return re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower()
 
 
-def _get_student_solved_slugs(student_id, platform):
-    """Get the set of problem slugs the student has solved on a platform."""
-    student_id_variants = [student_id]
-    if isinstance(student_id, ObjectId):
-        student_id_variants.append(str(student_id))
-    else:
-        try:
-            student_id_variants.append(ObjectId(student_id))
-        except Exception:
-            pass
-
-    doc = None
-    for sid in student_id_variants:
-        doc = db[COLLECTIONS[platform]].find_one({"student_id": sid})
-        if doc:
-            break
+def _parse_solved_slugs_from_doc(doc, platform):
+    """Parse the set of solved problem slugs/codes from a platform profile document."""
     if not doc:
         return set()
 
@@ -78,7 +64,6 @@ def _get_student_solved_slugs(student_id, platform):
             slug = sub.get("titleSlug", "")
             if slug:
                 solved.add(slug.lower())
-        # Also check submission_calendar timestamps aren't needed for slug matching
 
     elif platform == "codechef":
         # recent_activity has problem_url with problem codes
@@ -106,6 +91,25 @@ def _get_student_solved_slugs(student_id, platform):
                 solved.add(_slug_from_title(title, "hackerrank"))
 
     return solved
+
+
+def _get_student_solved_slugs(student_id, platform):
+    """Get the set of problem slugs the student has solved on a platform."""
+    student_id_variants = [student_id]
+    if isinstance(student_id, ObjectId):
+        student_id_variants.append(str(student_id))
+    else:
+        try:
+            student_id_variants.append(ObjectId(student_id))
+        except Exception:
+            pass
+
+    doc = None
+    for sid in student_id_variants:
+        doc = db[COLLECTIONS[platform]].find_one({"student_id": sid})
+        if doc:
+            break
+    return _parse_solved_slugs_from_doc(doc, platform)
 
 
 def _compute_report(platform, date):
@@ -157,6 +161,21 @@ def _compute_report(platform, date):
         ],
     }).sort("name", 1))
 
+    # Bulk-fetch coding profiles for all these students in ONE query
+    student_ids = [student["_id"] for student in students if student.get("_id")]
+    valid_references = []
+    for sid in student_ids:
+        valid_references.extend([sid, str(sid)])
+
+    profiles_by_student = {}
+    if valid_references:
+        coll = COLLECTIONS[platform]
+        for doc in db[coll].find({"student_id": {"$in": valid_references}}):
+            sid = doc.get("student_id")
+            if sid is not None:
+                profiles_by_student[sid] = doc
+                profiles_by_student[str(sid)] = doc
+
     # 3. For each student, check which problems they solved
     results = []
     fully_completed = 0
@@ -171,7 +190,9 @@ def _compute_report(platform, date):
         if not username or not str(username).strip():
             continue
 
-        solved_slugs = _get_student_solved_slugs(student["_id"], platform)
+        sid = student["_id"]
+        doc = profiles_by_student.get(sid) or profiles_by_student.get(str(sid))
+        solved_slugs = _parse_solved_slugs_from_doc(doc, platform)
 
         # Match each assigned problem
         completed_problems = []
