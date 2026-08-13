@@ -79,19 +79,40 @@ def fetch_leetcode(username):
         submission_calendar = json.loads(calendar.get("submissionCalendar") or "{}")
     except (TypeError, ValueError):
         submission_calendar = {}
+
     yearly_submissions = sum(int(count or 0) for count in submission_calendar.values())
+
+    # IST timezone (Asia/Kolkata: UTC+5:30)
+    IST = timezone(timedelta(hours=5, minutes=30))
+    today_ist = datetime.now(IST).date()
+
+    # Convert timestamps to IST dates for active submission days
     active_dates = {
-        datetime.fromtimestamp(int(timestamp), timezone.utc).date()
-        for timestamp, count in submission_calendar.items()
+        datetime.fromtimestamp(int(ts), tz=IST).date()
+        for ts, count in submission_calendar.items()
         if int(count or 0) > 0
     }
-    cursor = datetime.now(timezone.utc).date()
-    if cursor not in active_dates:
-        cursor -= timedelta(days=1)
+
+    # Calculate live current streak: count consecutive active days starting STRICTLY from today_ist
+    cursor = today_ist
     current_streak = 0
     while cursor in active_dates:
         current_streak += 1
         cursor -= timedelta(days=1)
+
+    # Calculate longest/max streak across all active dates
+    longest_streak = 0
+    streak = 0
+    if active_dates:
+        day = min(active_dates)
+        end = max(active_dates)
+        while day <= end:
+            if day in active_dates:
+                streak += 1
+                longest_streak = max(longest_streak, streak)
+            else:
+                streak = 0
+            day += timedelta(days=1)
 
     raw_recent = [item for item in (payload.get("recentSubmissionList") or []) if item.get("statusDisplay") == "Accepted"]
     recent = []
@@ -108,7 +129,11 @@ def fetch_leetcode(username):
     metrics = {
         "solved": solved.get("all", 0), "easy": solved.get("easy", 0), "medium": solved.get("medium", 0), "hard": solved.get("hard", 0),
         "ranking": profile.get("ranking"), "contest_rating": round(contest.get("rating") or 0), "contests": contest.get("attendedContestsCount") or 0,
-        "active_days": calendar.get("totalActiveDays") or 0, "current_streak": calendar.get("streak") or 0, "longest_streak": calendar.get("streak") or 0, "streak": calendar.get("streak") or 0, "badges": len(user.get("badges") or []),
+        "active_days": calendar.get("totalActiveDays") or len(active_dates),
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+        "streak": current_streak,
+        "badges": len(user.get("badges") or []),
         "submissions": total_submissions, "yearly_submissions": yearly_submissions, "acceptance_rate": round(accepted_submissions / total_submissions * 100, 2) if total_submissions else 0,
         "total_questions": question_totals.get("all", 0), "total_easy": question_totals.get("easy", 0), "total_medium": question_totals.get("medium", 0), "total_hard": question_totals.get("hard", 0),
     }

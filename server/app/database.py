@@ -44,10 +44,10 @@ def init_db(app):
         uri,
         retryWrites=True,
         retryReads=True,
-        maxPoolSize=10,
+        maxPoolSize=20,
         minPoolSize=2,
         connectTimeoutMS=10000,
-        socketTimeoutMS=20000,
+        socketTimeoutMS=30000,
         serverSelectionTimeoutMS=5000,
         compressors="zstd,snappy,zlib",
     )
@@ -116,6 +116,9 @@ def _create_indexes():
         _db.notifications.create_index("read")
         _db.activity_logs.create_index("created_at")
         _db.activity_logs.create_index("user_id")
+        # Attendance-related indexes
+        _db.daily_tasks.create_index([("date", 1), ("platform", 1)])
+        _db.daily_task_reports.create_index([("platform", 1), ("date", 1)])
         logger.info("MongoDB indexes verified successfully.")
     except Exception as err:
         logger.warning("Note on MongoDB index verification: %s", str(err))

@@ -193,6 +193,49 @@ def get_dashboard_stats():
                 "followers": metrics.get("followers", 0) or 0,
             })
 
+    # Bulk fetch platform profiles for student streaks
+    from app.services.streak_service import calculate_student_streaks
+    from app.services.platform_storage import COLLECTIONS
+
+    student_ids = [s["_id"] for s in student_documents if s.get("_id")]
+    id_variants = []
+    for sid in student_ids:
+        id_variants.extend([sid, str(sid)])
+
+    lc_docs = {doc.get("student_id"): doc for doc in db[COLLECTIONS["leetcode"]].find({"student_id": {"$in": id_variants}})}
+    cc_docs = {doc.get("student_id"): doc for doc in db[COLLECTIONS["codechef"]].find({"student_id": {"$in": id_variants}})}
+    hr_docs = {doc.get("student_id"): doc for doc in db[COLLECTIONS["hackerrank"]].find({"student_id": {"$in": id_variants}})}
+
+    student_streaks = []
+    for student in student_documents:
+        sid = student.get("_id")
+        if not sid:
+            continue
+        lc_doc = lc_docs.get(sid) or lc_docs.get(str(sid))
+        cc_doc = cc_docs.get(sid) or cc_docs.get(str(sid))
+        hr_doc = hr_docs.get(sid) or hr_docs.get(str(sid))
+
+        streak_data = calculate_student_streaks(student, lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc)
+        student_streaks.append({
+            "student_id": str(sid),
+            "name": student.get("name", ""),
+            "department": student.get("department", ""),
+            "year": student.get("year", ""),
+            "leetcode_today": streak_data.get("leetcode", {}).get("solved_today", 0),
+            "hackerrank_today": streak_data.get("hackerrank", {}).get("solved_today", 0),
+            "codechef_today": streak_data.get("codechef", {}).get("solved_today", 0),
+            "current_streak": streak_data.get("overall_current_streak", 0),
+            "longest_streak": streak_data.get("overall_longest_streak", 0),
+            "leetcode_streak": streak_data.get("leetcode", {}).get("current_streak", 0),
+            "hackerrank_streak": streak_data.get("hackerrank", {}).get("current_streak", 0),
+            "codechef_streak": streak_data.get("codechef", {}).get("current_streak", 0),
+            "last_activity_date": streak_data.get("last_activity_date"),
+            "last_updated": streak_data.get("last_updated"),
+        })
+
+    # Sort streaks descending
+    student_streaks.sort(key=lambda x: (x["current_streak"], x["leetcode_today"] + x["hackerrank_today"] + x["codechef_today"]), reverse=True)
+
     result = {
         "total_students": totals.get("total_students", 0),
         "active_students": totals.get("active_students", 0),
@@ -207,6 +250,7 @@ def get_dashboard_stats():
         "most_used_language": most_used_lang,
         "top_contributor": top_contributor,
         "platform_charts": platform_charts,
+        "student_streaks": student_streaks,
     }
 
     cache_set(CACHE_KEY, result, ttl=60)

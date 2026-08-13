@@ -37,14 +37,27 @@ def _sync_single_platform(student_id, platform_name, username, current_profiles)
             f"[{timestamp}] Platform sync failed | Student ID: {student_id} | Platform: {platform_name} | Username: {username} | Error: {exc}"
         )
 
+        # Check if we have valid previously-synced data to preserve
         old_profile = current_profiles.get(platform_name)
-        if old_profile and old_profile.get("status") == "synced" and old_profile.get("username") == username and (old_profile.get("metrics", {}).get("solved", 0) > 0 or old_profile.get("metrics", {}).get("problems_solved", 0) > 0):
-            # Preserve existing synced data on transient error only if username matches and profile has data
+        if old_profile and old_profile.get("status") == "synced" and old_profile.get("username") == username:
+            # Preserve existing synced data on transient error
             return platform_name, old_profile, None
+
+        # Also check the dedicated platform collection for valid data
+        try:
+            stored_doc = db[COLLECTIONS[platform_name]].find_one({"student_id": student_id})
+            if not stored_doc:
+                stored_doc = db[COLLECTIONS[platform_name]].find_one({"student_id": ObjectId(student_id)})
+            if stored_doc:
+                stored_profile = stored_doc.get("profile")
+                if stored_profile and stored_profile.get("status") == "synced":
+                    return platform_name, stored_profile, None
+        except Exception:
+            pass
 
         err_msg = str(exc).lower()
         is_not_found = "not found" in err_msg or "private" in err_msg or "invalid" in err_msg or "profile data unavailable" in err_msg
-        status = "failed" if is_not_found else "syncing"
+        status = "failed" if is_not_found else "rate_limited"
 
         fallback_profile = {
             "platform": platform_name,

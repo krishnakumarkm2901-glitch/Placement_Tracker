@@ -1,4 +1,27 @@
-"""Attendance routes — compute daily solving attendance from platform submission calendars."""
+"""Attendance routes — daily solving attendance from pre-synced platform data.
+
+CRITICAL DESIGN RULE
+────────────────────
+This module NEVER makes live requests to LeetCode, HackerRank, CodeChef, or
+GitHub during attendance calculation. All platform data is read from MongoDB
+collections that are populated by the background sync service.
+
+TIMEZONE
+────────
+All date calculations use Indian Standard Time (Asia/Kolkata, UTC+5:30).
+
+QUERY BUDGET
+────────────
+The entire ``get_all_attendance`` endpoint uses exactly 5 MongoDB queries
+regardless of student count:
+  1. students (with projection)
+  2. leetcode_profiles (bulk)
+  3. codechef_profiles (bulk)
+  4. hackerrank_profiles (bulk)
+  5. daily_tasks (for the requested month)
+
+Everything else is computed in-memory in Python.
+"""
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -11,119 +34,95 @@ import logging
 from app.extensions import db
 from app.utils.decorators import admin_required, rate_limit
 from app.services.platform_storage import COLLECTIONS
+from app.cache import cached_response, cache_invalidate
 
 attendance_bp = Blueprint("attendance", __name__)
 logger = logging.getLogger("placement_tracker.attendance")
 
+# Indian Standard Time (Asia/Kolkata: UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+# Only the fields we need from the students collection
+_STUDENT_PROJECTION = {
+    "_id": 1,
+    "name": 1,
+    "department": 1,
+    "year": 1,
+}
+
 
 # ---------------------------------------------------------------------------
-# Helpers — per-day, per-platform solved counts
+# Pure-computation helpers (NO database access, IST time zone)
 # ---------------------------------------------------------------------------
 
-def _get_daily_platform_counts(student_id, year, month, lc_doc=None, cc_doc=None, hr_doc=None):
-    """Return a dict  {day_int: {"leetcode": N, "codechef": N, "hackerrank": N}}
-    for every day in *month/year* where the student had at least one accepted
-    submission on any of the three platforms.
+def _parse_lc_calendar(lc_doc, year, month):
+    """Extract {day_int: count} from a LeetCode profile doc's submission_calendar.
 
-    Unlike the old `_get_submission_dates` which returned a flat set of active
-    day numbers, this version preserves per-platform counts so the admin can
-    see *where* the attendance came from.
+    LeetCode stores timestamps (unix seconds) -> submission count.
+    Converts timestamps to IST (Asia/Kolkata) date boundaries.
     """
-    _, last = cal.monthrange(year, month)
-
-    # Pre-build date-string → day mapping for CodeChef / HackerRank
-    month_dates = {}  # "YYYY-MM-DD" → day_int
-    for day in range(1, last + 1):
-        month_dates[f"{year:04d}-{month:02d}-{day:02d}"] = day
-
-    # result keyed by day_int
-    counts = {}  # day → {"leetcode": n, "codechef": n, "hackerrank": n}
-
-    def _ensure(day):
-        if day not in counts:
-            counts[day] = {"leetcode": 0, "codechef": 0, "hackerrank": 0}
-
-    # --- LeetCode ----------------------------------------------------------
-    if lc_doc:
-        lc_calendar = (lc_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
-        if isinstance(lc_calendar, dict):
-            for ts_str, count_val in lc_calendar.items():
-                n = int(count_val or 0)
-                if n <= 0:
-                    continue
-                try:
-                    dt = datetime.fromtimestamp(int(ts_str), tz=timezone.utc)
-                    if dt.year == year and dt.month == month:
-                        _ensure(dt.day)
-                        counts[dt.day]["leetcode"] += n
-                except (ValueError, OSError, OverflowError):
-                    pass
-        else:
-            logger.debug("LeetCode submission_calendar is not a dict for student %s: %s",
-                         student_id, type(lc_calendar))
-
-    # --- CodeChef ----------------------------------------------------------
-    if cc_doc:
-        cc_calendar = (cc_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
-        if isinstance(cc_calendar, dict):
-            for date_str, count_val in cc_calendar.items():
-                n = int(count_val or 0)
-                if n <= 0:
-                    continue
-                day = month_dates.get(date_str)
-                if day is None:
-                    # Try normalising "YYYY-M-D" → "YYYY-MM-DD"
-                    try:
-                        parts = [int(p) for p in str(date_str).split("-")]
-                        if len(parts) == 3:
-                            norm = f"{parts[0]:04d}-{parts[1]:02d}-{parts[2]:02d}"
-                            day = month_dates.get(norm)
-                    except (ValueError, TypeError):
-                        pass
-                if day is not None:
-                    _ensure(day)
-                    counts[day]["codechef"] += n
-
-    # --- HackerRank --------------------------------------------------------
-    if hr_doc:
-        hr_calendar = (hr_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
-        if isinstance(hr_calendar, dict):
-            for date_str, count_val in hr_calendar.items():
-                n = int(count_val or 0)
-                if n <= 0:
-                    continue
-                day = month_dates.get(str(date_str))
-                if day is None:
-                    # HackerRank sometimes uses timestamps
-                    try:
-                        ts = int(date_str)
-                        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-                        if dt.year == year and dt.month == month:
-                            day = dt.day
-                    except (ValueError, OSError, OverflowError):
-                        pass
-                    # Also try normalising "YYYY-M-D"
-                    if day is None:
-                        try:
-                            parts = [int(p) for p in str(date_str).split("-")]
-                            if len(parts) == 3:
-                                norm = f"{parts[0]:04d}-{parts[1]:02d}-{parts[2]:02d}"
-                                day = month_dates.get(norm)
-                        except (ValueError, TypeError):
-                            pass
-                if day is not None:
-                    _ensure(day)
-                    counts[day]["hackerrank"] += n
-
-    return counts
+    result = {}
+    if not lc_doc:
+        return result
+    lc_calendar = (lc_doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
+    if not isinstance(lc_calendar, dict):
+        return result
+    for ts_str, count_val in lc_calendar.items():
+        n = int(count_val or 0)
+        if n <= 0:
+            continue
+        try:
+            # Convert unix timestamp to IST date
+            dt = datetime.fromtimestamp(int(ts_str), tz=IST)
+            if dt.year == year and dt.month == month:
+                result[dt.day] = result.get(dt.day, 0) + n
+        except (ValueError, OSError, OverflowError):
+            pass
+    return result
 
 
-# ---------------------------------------------------------------------------
-# Helpers — daily-task completion check
-# ---------------------------------------------------------------------------
+def _parse_date_calendar(doc, year, month, month_dates):
+    """Extract {day_int: count} from a CodeChef or HackerRank profile doc.
+
+    These platforms use "YYYY-MM-DD" date strings (sometimes un-padded).
+    HackerRank may also use unix timestamps for some keys.
+    """
+    result = {}
+    if not doc:
+        return result
+    calendar = (doc.get("profile") or {}).get("raw", {}).get("submission_calendar", {})
+    if not isinstance(calendar, dict):
+        return result
+    for date_str, count_val in calendar.items():
+        n = int(count_val or 0)
+        if n <= 0:
+            continue
+        day = month_dates.get(str(date_str))
+        if day is None:
+            # Try normalising "YYYY-M-D" -> "YYYY-MM-DD"
+            try:
+                parts = [int(p) for p in str(date_str).split("-")]
+                if len(parts) == 3:
+                    norm = f"{parts[0]:04d}-{parts[1]:02d}-{parts[2]:02d}"
+                    day = month_dates.get(norm)
+            except (ValueError, TypeError):
+                pass
+        if day is None:
+            # HackerRank sometimes uses unix timestamps
+            try:
+                ts = int(date_str)
+                dt = datetime.fromtimestamp(ts, tz=IST)
+                if dt.year == year and dt.month == month:
+                    day = dt.day
+            except (ValueError, OSError, OverflowError):
+                pass
+        if day is not None:
+            result[day] = result.get(day, 0) + n
+    return result
+
 
 def _extract_slug(url, platform):
-    """Extract the problem slug/code from a URL (mirrors daily_task_reports logic)."""
+    """Extract the problem slug/code from a URL."""
     url = str(url or "").strip()
     if not url:
         return ""
@@ -152,22 +151,13 @@ def _slug_from_title(title, platform):
     return re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower()
 
 
-def _get_student_solved_slugs(student_id, platform, lc_doc=None, cc_doc=None, hr_doc=None):
-    """Return the set of problem slugs a student has solved on *platform*.
+def _get_solved_slugs_from_doc(doc, platform):
+    """Return the set of problem slugs a student has solved.
 
-    Accepts pre-fetched platform docs to avoid redundant DB queries.
+    Works entirely from the pre-fetched platform doc — NO database access.
     """
-    doc = {"leetcode": lc_doc, "codechef": cc_doc, "hackerrank": hr_doc}.get(platform)
-
-    # Fallback: query DB if doc not pre-fetched
-    if doc is None:
-        for sid in [student_id, str(student_id)]:
-            doc = db[COLLECTIONS[platform]].find_one({"student_id": sid})
-            if doc:
-                break
     if not doc:
         return set()
-
     profile = doc.get("profile") or {}
     raw = profile.get("raw") or {}
     solved = set()
@@ -202,37 +192,21 @@ def _get_student_solved_slugs(student_id, platform, lc_doc=None, cc_doc=None, hr
     return solved
 
 
-def _check_daily_task_completion(student_id, year, month, lc_doc=None, cc_doc=None, hr_doc=None):
+def _check_daily_task_completion_pure(lc_doc, cc_doc, hr_doc, tasks_by_date):
     """Return a set of day-of-month integers where the student completed at
     least one problem from the portal's assigned daily tasks.
 
-    This checks *all* platforms' daily tasks for each date in the month.
+    This is a PURE function — no database access. ``tasks_by_date`` is
+    pre-fetched once and shared across all students.
     """
-    _, last = cal.monthrange(year, month)
-    start = f"{year:04d}-{month:02d}-01"
-    end = f"{year:04d}-{month:02d}-{last:02d}"
-
-    # Fetch all daily task docs for this month (across all platforms)
-    task_docs = list(db.daily_tasks.find({
-        "date": {"$gte": start, "$lte": end},
-    }))
-    if not task_docs:
+    if not tasks_by_date:
         return set()
 
-    # Group tasks by date
-    tasks_by_date = {}  # date_str → [task_doc, ...]
-    for td in task_docs:
-        d = td.get("date")
-        if d:
-            tasks_by_date.setdefault(d, []).append(td)
-
-    # Pre-compute solved slugs per platform (once)
-    solved_by_platform = {}
-    for platform in ("leetcode", "codechef", "hackerrank"):
-        solved_by_platform[platform] = _get_student_solved_slugs(
-            student_id, platform,
-            lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc,
-        )
+    solved_by_platform = {
+        "leetcode": _get_solved_slugs_from_doc(lc_doc, "leetcode"),
+        "codechef": _get_solved_slugs_from_doc(cc_doc, "codechef"),
+        "hackerrank": _get_solved_slugs_from_doc(hr_doc, "hackerrank"),
+    }
 
     completed_days = set()
     for date_str, task_list in tasks_by_date.items():
@@ -248,8 +222,12 @@ def _check_daily_task_completion(student_id, year, month, lc_doc=None, cc_doc=No
                 continue
 
             student_slugs = solved_by_platform.get(platform, set())
+            if not student_slugs:
+                continue
+
             for prob in problems:
-                slug = _extract_slug(prob.get("url", ""), platform) or _slug_from_title(prob.get("title", ""), platform)
+                slug = (_extract_slug(prob.get("url", ""), platform)
+                        or _slug_from_title(prob.get("title", ""), platform))
                 if not slug:
                     continue
                 if platform == "codechef":
@@ -258,40 +236,34 @@ def _check_daily_task_completion(student_id, year, month, lc_doc=None, cc_doc=No
                     match = slug.lower() in {s.lower() for s in student_slugs}
                 if match:
                     completed_days.add(day)
-                    break  # one match is enough for this task_doc
+                    break
             if day in completed_days:
-                break  # no need to check other task_docs for this date
+                break
 
     return completed_days
 
 
 # ---------------------------------------------------------------------------
-# Core attendance computation
+# Core attendance computation (pure — no DB, IST boundaries)
 # ---------------------------------------------------------------------------
 
-def _compute_student_attendance(student, year, month, today, days_in_month,
+def _compute_student_attendance(student, year, month, today_ist, days_in_month,
+                                month_dates, tasks_by_date,
                                 lc_doc=None, cc_doc=None, hr_doc=None):
     """Compute attendance for a single student.
 
     Formula per day:
-        platform_solved = leetcode + hackerrank + codechef
+        platform_solved = leetcode + hackerrank + codechef (from submission calendars)
         present = daily_task_completed OR platform_solved > 0
 
-    Returns a dict with daily status (including per-platform counts),
-    total solves, and attendance rate.
+    This function does ZERO database queries.
     """
-    student_id = student["_id"]
+    lc_counts = _parse_lc_calendar(lc_doc, year, month)
+    cc_counts = _parse_date_calendar(cc_doc, year, month, month_dates)
+    hr_counts = _parse_date_calendar(hr_doc, year, month, month_dates)
 
-    # Per-day per-platform counts from submission calendars
-    platform_counts = _get_daily_platform_counts(
-        student_id, year, month,
-        lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc,
-    )
-
-    # Daily task completion days
-    task_completed_days = _check_daily_task_completion(
-        student_id, year, month,
-        lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc,
+    task_completed_days = _check_daily_task_completion_pure(
+        lc_doc, cc_doc, hr_doc, tasks_by_date,
     )
 
     daily_status = []
@@ -300,9 +272,9 @@ def _compute_student_attendance(student, year, month, today, days_in_month,
     countable_days = 0
 
     for day in range(1, days_in_month + 1):
-        date_obj = datetime(year, month, day, tzinfo=timezone.utc).date()
+        date_obj = datetime(year, month, day, tzinfo=IST).date()
 
-        if date_obj > today:
+        if date_obj > today_ist:
             daily_status.append({
                 "day": day,
                 "status": "future",
@@ -314,10 +286,9 @@ def _compute_student_attendance(student, year, month, today, days_in_month,
             })
         else:
             countable_days += 1
-            day_counts = platform_counts.get(day, {"leetcode": 0, "codechef": 0, "hackerrank": 0})
-            lc = day_counts.get("leetcode", 0)
-            cc = day_counts.get("codechef", 0)
-            hr = day_counts.get("hackerrank", 0)
+            lc = lc_counts.get(day, 0)
+            cc = cc_counts.get(day, 0)
+            hr = hr_counts.get(day, 0)
             platform_solved = lc + cc + hr
             task_done = day in task_completed_days
 
@@ -339,7 +310,7 @@ def _compute_student_attendance(student, year, month, today, days_in_month,
     rate = round(present_count / countable_days * 100, 1) if countable_days > 0 else 0
 
     return {
-        "student_id": str(student_id),
+        "student_id": str(student["_id"]),
         "name": student.get("name", ""),
         "department": student.get("department", ""),
         "year": student.get("year", ""),
@@ -352,34 +323,95 @@ def _compute_student_attendance(student, year, month, today, days_in_month,
 
 
 # ---------------------------------------------------------------------------
+# Bulk data fetchers (ONE query each)
+# ---------------------------------------------------------------------------
+
+def _bulk_fetch_platform_docs(student_ids):
+    """Fetch all platform profile docs for the given student IDs in 3 queries."""
+    lc_docs = {}
+    cc_docs = {}
+    hr_docs = {}
+
+    if not student_ids:
+        return lc_docs, cc_docs, hr_docs
+
+    for platform, target_dict in [
+        ("leetcode", lc_docs),
+        ("codechef", cc_docs),
+        ("hackerrank", hr_docs),
+    ]:
+        try:
+            for doc in db[COLLECTIONS[platform]].find(
+                {"student_id": {"$in": student_ids}}
+            ):
+                sid = doc.get("student_id")
+                if sid is not None:
+                    target_dict[sid] = doc
+                    target_dict[str(sid)] = doc
+        except Exception as err:
+            logger.error("Error bulk-fetching %s profiles: %s", platform, err)
+
+    return lc_docs, cc_docs, hr_docs
+
+
+def _fetch_month_tasks(year, month):
+    """Fetch daily tasks for the given month in ONE query."""
+    _, last = cal.monthrange(year, month)
+    start = f"{year:04d}-{month:02d}-01"
+    end = f"{year:04d}-{month:02d}-{last:02d}"
+
+    tasks_by_date = {}
+    try:
+        for td in db.daily_tasks.find({"date": {"$gte": start, "$lte": end}}):
+            d = td.get("date")
+            if d:
+                tasks_by_date.setdefault(d, []).append(td)
+    except Exception as err:
+        logger.error("Error fetching daily tasks for %s-%s: %s", year, month, err)
+
+    return tasks_by_date
+
+
+def _build_month_dates(year, month):
+    """Build "YYYY-MM-DD" -> day_int lookup for the given month."""
+    _, last = cal.monthrange(year, month)
+    return {f"{year:04d}-{month:02d}-{day:02d}": day for day in range(1, last + 1)}
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
 @attendance_bp.route("", methods=["GET"])
 @rate_limit()
+@cached_response(ttl=60, prefix="attendance_all")
 def get_all_attendance():
     """Return all students' attendance for a given month.
 
-    Query params: month (1-12), year (YYYY), department, student_year
-    """
-    now = datetime.now(timezone.utc)
-    try:
-        month = int(request.args.get("month", now.month))
-    except (ValueError, TypeError):
-        month = now.month
-    try:
-        year = int(request.args.get("year", now.year))
-    except (ValueError, TypeError):
-        year = now.year
+    Query params: month (1-12), year (YYYY), department, student_year, refresh (true/1)
 
-    # Clamp values
+    Uses exactly 5 MongoDB queries regardless of student count.
+    """
+    if request.args.get("refresh", "").lower() in ("true", "1", "yes"):
+        cache_invalidate("attendance_all")
+
+    now_ist = datetime.now(IST)
+    try:
+        month = int(request.args.get("month", now_ist.month))
+    except (ValueError, TypeError):
+        month = now_ist.month
+    try:
+        year = int(request.args.get("year", now_ist.year))
+    except (ValueError, TypeError):
+        year = now_ist.year
+
     month = max(1, min(12, month))
     year = max(2020, min(2100, year))
 
     _, days_in_month = cal.monthrange(year, month)
-    today = now.date()
+    today_ist = now_ist.date()
 
-    # Build student query
+    # ── Query 1: Students ──
     query = {"is_active": True}
     department = request.args.get("department")
     if department and department != "All":
@@ -388,52 +420,34 @@ def get_all_attendance():
     if student_year and student_year != "All":
         query["year"] = student_year
 
-    students = list(db.students.find(query).sort("name", 1))
+    students = list(db.students.find(query, _STUDENT_PROJECTION).sort("name", 1))
 
-    # Pre-fetch platform profiles in bulk to avoid N+1 queries
     student_ids = []
     for s in students:
         s_id = s.get("_id")
-        if s_id:
+        if s_id is not None:
             student_ids.extend([s_id, str(s_id)])
 
-    lc_docs = {}
-    cc_docs = {}
-    hr_docs = {}
+    # ── Queries 2-4: Bulk platform profiles ──
+    lc_docs, cc_docs, hr_docs = _bulk_fetch_platform_docs(student_ids)
 
-    if student_ids:
-        for platform, target_dict in [
-            ("leetcode", lc_docs),
-            ("codechef", cc_docs),
-            ("hackerrank", hr_docs),
-        ]:
-            try:
-                for doc in db[COLLECTIONS[platform]].find(
-                    {"student_id": {"$in": student_ids}}, maxTimeMS=10000
-                ):
-                    sid = doc.get("student_id")
-                    if sid:
-                        target_dict[sid] = doc
-                        target_dict[str(sid)] = doc
-            except Exception as err:
-                logger.error("Error pre-fetching %s profiles in bulk: %s", platform, str(err))
+    # ── Query 5: Daily tasks for this month ──
+    tasks_by_date = _fetch_month_tasks(year, month)
+    month_dates = _build_month_dates(year, month)
 
+    # ── Pure computation ──
     results = []
     for student in students:
         sid = student["_id"]
         att = _compute_student_attendance(
-            student,
-            year,
-            month,
-            today,
-            days_in_month,
+            student, year, month, today_ist, days_in_month,
+            month_dates, tasks_by_date,
             lc_doc=lc_docs.get(sid) or lc_docs.get(str(sid)),
             cc_doc=cc_docs.get(sid) or cc_docs.get(str(sid)),
             hr_doc=hr_docs.get(sid) or hr_docs.get(str(sid)),
         )
         results.append(att)
 
-    # Collect unique departments and years for filter dropdowns
     all_departments = sorted(db.students.distinct("department", {"is_active": True}))
     all_years = sorted(db.students.distinct("year", {"is_active": True}))
 
@@ -457,60 +471,67 @@ def get_student_attendance(student_id):
     identity = get_jwt_identity()
     user = db.users.find_one({"_id": ObjectId(identity)})
 
-    # Allow admin to view any student; students can only view themselves
     if user and user.get("role") != "admin":
         if user.get("student_id") and str(user["student_id"]) != student_id:
             return jsonify({"error": "You can only view your own attendance"}), 403
 
-    student = db.students.find_one({"_id": ObjectId(student_id)})
+    student = db.students.find_one({"_id": ObjectId(student_id)}, _STUDENT_PROJECTION)
     if not student:
         return jsonify({"error": "Student not found"}), 404
 
-    now = datetime.now(timezone.utc)
+    now_ist = datetime.now(IST)
     try:
-        month = int(request.args.get("month", now.month))
+        month = int(request.args.get("month", now_ist.month))
     except (ValueError, TypeError):
-        month = now.month
+        month = now_ist.month
     try:
-        year = int(request.args.get("year", now.year))
+        year = int(request.args.get("year", now_ist.year))
     except (ValueError, TypeError):
-        year = now.year
+        year = now_ist.year
 
     month = max(1, min(12, month))
     year = max(2020, min(2100, year))
 
     _, days_in_month = cal.monthrange(year, month)
-    today = now.date()
+    today_ist = now_ist.date()
+
+    sid_variants = [ObjectId(student_id), str(student_id)]
 
     lc_doc = None
     cc_doc = None
     hr_doc = None
-
-    sid_variants = [ObjectId(student_id), str(student_id)]
-    for platform, var_name in [("leetcode", "lc_doc"), ("codechef", "cc_doc"), ("hackerrank", "hr_doc")]:
+    for platform, attr in [("leetcode", "lc_doc"), ("codechef", "cc_doc"), ("hackerrank", "hr_doc")]:
         try:
-            doc = db[COLLECTIONS[platform]].find_one(
-                {"student_id": {"$in": sid_variants}}, maxTimeMS=5000
-            )
-            if var_name == "lc_doc":
+            doc = db[COLLECTIONS[platform]].find_one({"student_id": {"$in": sid_variants}})
+            if attr == "lc_doc":
                 lc_doc = doc
-            elif var_name == "cc_doc":
+            elif attr == "cc_doc":
                 cc_doc = doc
             else:
                 hr_doc = doc
         except Exception as err:
-            logger.error("Error fetching %s profile for student %s: %s", platform, student_id, str(err))
+            logger.error("Error fetching %s profile for student %s: %s", platform, student_id, err)
+
+    tasks_by_date = _fetch_month_tasks(year, month)
+    month_dates = _build_month_dates(year, month)
 
     att = _compute_student_attendance(
-        student,
-        year,
-        month,
-        today,
-        days_in_month,
-        lc_doc=lc_doc,
-        cc_doc=cc_doc,
-        hr_doc=hr_doc,
+        student, year, month, today_ist, days_in_month,
+        month_dates, tasks_by_date,
+        lc_doc=lc_doc, cc_doc=cc_doc, hr_doc=hr_doc,
     )
     att["days_in_month"] = days_in_month
 
     return jsonify(att), 200
+
+
+@attendance_bp.route("/refresh", methods=["POST"])
+@jwt_required()
+@admin_required
+def refresh_attendance():
+    """Invalidate cached attendance data and trigger platform sync recalculation."""
+    cache_invalidate("attendance_all")
+    return jsonify({
+        "message": "Attendance cache invalidated successfully. Attendance recalculated.",
+        "timestamp": datetime.now(IST).isoformat(),
+    }), 200

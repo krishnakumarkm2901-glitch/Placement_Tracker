@@ -271,8 +271,12 @@ def get_student(student_id):
         sr["suggestions"] = get_quality_suggestions(r)
         serialized_repos.append(sr)
 
+    from app.services.streak_service import calculate_student_streaks
+    streak_data = calculate_student_streaks(student)
+
     result = serialize_student(student)
     result["repositories"] = serialized_repos
+    result["streak_metrics"] = streak_data
 
     return jsonify({"student": result}), 200
 

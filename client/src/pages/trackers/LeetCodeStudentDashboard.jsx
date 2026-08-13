@@ -251,6 +251,15 @@ export default function LeetCodeStudentDashboard() {
     return { done, total: students.length };
   }, [students, dailyChallenge]);
 
+  // Logged-in student's own LeetCode metrics
+  const myStudent = useMemo(() => {
+    if (!user?.student_id || !students.length) return null;
+    return students.find((s) => s.id === user.student_id || s._id === user.student_id);
+  }, [user, students]);
+
+  const myLcProfile = myStudent?.platform_profiles?.leetcode;
+  const myMetrics = myLcProfile?.metrics || {};
+
   // Total students count
   const totalStudentsCount = students.length || 247;
 
@@ -264,6 +273,54 @@ export default function LeetCodeStudentDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+      {/* Student Personal LeetCode Live Metrics Banner */}
+      {user?.student_id && myStudent && (
+        <Card className="shadow-sm border border-amber-300/70 dark:border-amber-500/30 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Avatar src={myLcProfile?.raw?.avatar_url || myStudent.avatar_url} name={myStudent.name} size="lg" />
+              <div>
+                <h2 className="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
+                  <span>{myStudent.name}</span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded-full">
+                    @{myStudent.platform_usernames?.leetcode || 'leetcode'}
+                  </span>
+                </h2>
+                <p className="text-xs text-surface-500 mt-0.5">
+                  {myStudent.department} · Year {myStudent.year} — Live LeetCode Performance
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                <span className="text-[10px] font-bold text-surface-500 uppercase">Live Streak</span>
+                <p className="text-lg font-black text-orange-500 flex items-center justify-center gap-1 mt-0.5">
+                  {myMetrics.current_streak || 0} 🔥
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                <span className="text-[10px] font-bold text-surface-500 uppercase">Max Streak</span>
+                <p className="text-lg font-black text-surface-900 dark:text-white mt-0.5">
+                  {myMetrics.longest_streak || 0}
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                <span className="text-[10px] font-bold text-surface-500 uppercase">Problems Solved</span>
+                <p className="text-lg font-black text-teal-600 dark:text-teal-400 mt-0.5">
+                  {myMetrics.solved || 0}
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+                <span className="text-[10px] font-bold text-surface-500 uppercase">Active Days</span>
+                <p className="text-lg font-black text-surface-900 dark:text-white mt-0.5">
+                  {myMetrics.active_days || 0}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Top Classroom Solvers + Recent Activity Feed */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-6">

@@ -42,6 +42,39 @@ def save_platform_profile(student_id, platform, profile, username="", analytics=
     )
 
 
+from datetime import datetime, timezone, timedelta
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _recalculate_profile_streaks(profile, platform):
+    """Ensure loaded profile metrics accurately reflect real IST current_streak & longest_streak."""
+    if not profile or not isinstance(profile, dict):
+        return profile
+    metrics = profile.get("metrics")
+    if not isinstance(metrics, dict):
+        return profile
+
+    from app.services.streak_service import compute_consecutive_streak, get_active_dates_lc, get_active_dates_date_str
+    today_ist = datetime.now(IST).date()
+
+    if platform == "leetcode":
+        active_dates = get_active_dates_lc(profile)
+    else:
+        active_dates = get_active_dates_date_str(profile)
+
+    if active_dates:
+        curr, max_s = compute_consecutive_streak(active_dates, today_ist)
+        metrics["current_streak"] = curr
+        metrics["longest_streak"] = max_s
+        metrics["streak"] = curr
+    elif "current_streak" in metrics:
+        metrics["current_streak"] = 0
+        metrics["streak"] = 0
+
+    return profile
+
+
 def load_platform_data(student):
     """Hydrate API-compatible fields from the dedicated collections."""
     student_id = student.get("_id")
@@ -55,7 +88,9 @@ def load_platform_data(student):
     for platform in ("leetcode", "codechef", "hackerrank"):
         stored = db[COLLECTIONS[platform]].find_one({"student_id": {"$in": [student_id, str(student_id)]}})
         if stored:
-            profiles[platform] = stored.get("profile", {})
+            prof = stored.get("profile", {})
+            prof = _recalculate_profile_streaks(prof, platform)
+            profiles[platform] = prof
     student["platform_profiles"] = profiles
     return student
 
@@ -91,7 +126,9 @@ def load_platform_data_bulk(students):
             target = student_id_map.get(pd.get("student_id"))
             if target:
                 profiles = dict(target.get("platform_profiles", {}) or {})
-                profiles[platform] = pd.get("profile", {})
+                prof = pd.get("profile", {})
+                prof = _recalculate_profile_streaks(prof, platform)
+                profiles[platform] = prof
                 target["platform_profiles"] = profiles
 
     return students
