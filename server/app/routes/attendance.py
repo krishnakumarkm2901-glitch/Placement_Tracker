@@ -334,14 +334,20 @@ def attendance_diag():
         sample_student = students[0] if students else None
         sample_lc_doc = None
         sample_cc_doc = None
+        sample_lc_calendar = None
+        sample_cc_calendar = None
         if sample_student:
             sample_lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": sample_student["_id"]})
             if not sample_lc_doc:
                 sample_lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": str(sample_student["_id"])})
+            if sample_lc_doc:
+                sample_lc_calendar = sample_lc_doc.get("profile", {}).get("raw", {}).get("submission_calendar")
             
             sample_cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": sample_student["_id"]})
             if not sample_cc_doc:
                 sample_cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": str(sample_student["_id"])})
+            if sample_cc_doc:
+                sample_cc_calendar = sample_cc_doc.get("profile", {}).get("raw", {}).get("submission_calendar")
                 
         return jsonify({
             "student_count": student_count,
@@ -355,11 +361,9 @@ def attendance_diag():
                 "id": str(sample_student["_id"]) if sample_student else None,
                 "id_type": str(type(sample_student["_id"])) if sample_student else None,
                 "has_lc_profile": sample_lc_doc is not None,
-                "lc_profile_sid": str(sample_lc_doc.get("student_id")) if sample_lc_doc else None,
-                "lc_profile_sid_type": str(type(sample_lc_doc.get("student_id"))) if sample_lc_doc else None,
+                "lc_calendar": sample_lc_calendar,
                 "has_cc_profile": sample_cc_doc is not None,
-                "cc_profile_sid": str(sample_cc_doc.get("student_id")) if sample_cc_doc else None,
-                "cc_profile_sid_type": str(type(sample_cc_doc.get("student_id"))) if sample_cc_doc else None,
+                "cc_calendar": sample_cc_calendar,
             }
         }), 200
     except Exception as e:
