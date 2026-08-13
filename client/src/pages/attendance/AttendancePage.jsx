@@ -14,6 +14,7 @@ import attendanceAPI from '../../api/attendance';
 import Card from '../../components/ui/Card';
 import LoadingSpinner from '../../components/feedback/LoadingSpinner';
 import EmptyState from '../../components/feedback/EmptyState';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -21,6 +22,7 @@ const MONTHS = [
 ];
 
 export default function AttendancePage() {
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const now = new Date();
   const [filters, setFilters] = useState({
@@ -97,15 +99,17 @@ export default function AttendancePage() {
             Apply
           </button>
 
-          <button
-            onClick={() => refreshMutation.mutate()}
-            disabled={refreshMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all cursor-pointer disabled:opacity-50"
-            title="Recalculate and fetch latest platform attendance"
-          >
-            <HiOutlineArrowPath className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin text-teal-500' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => refreshMutation.mutate()}
+              disabled={refreshMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all cursor-pointer disabled:opacity-50"
+              title="Recalculate and fetch latest platform attendance"
+            >
+              <HiOutlineArrowPath className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin text-teal-500' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+          )}
         </div>
       </div>
 
