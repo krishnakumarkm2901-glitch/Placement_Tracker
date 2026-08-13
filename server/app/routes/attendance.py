@@ -336,6 +336,34 @@ def attendance_diag():
         sample_cc_doc = None
         sample_lc_calendar = None
         sample_cc_calendar = None
+        
+        # Build the actual lc_docs map in the same way get_all_attendance does
+        lc_docs = {}
+        for doc in lc_bulk:
+            sid = doc.get("student_id")
+            if sid:
+                lc_docs[sid] = doc
+                lc_docs[str(sid)] = doc
+
+        target_student = None
+        for s in students:
+            if s.get("name") == "SURENDHAR M":
+                target_student = s
+                break
+        
+        lookup_trace = {}
+        if target_student:
+            tsid = target_student["_id"]
+            lookup_trace = {
+                "name": target_student.get("name"),
+                "id_repr": repr(tsid),
+                "id_type": str(type(tsid)),
+                "in_lc_docs_directly": tsid in lc_docs,
+                "in_lc_docs_str": str(tsid) in lc_docs,
+                "lc_docs_get_directly": lc_docs.get(tsid) is not None,
+                "lc_docs_get_str": lc_docs.get(str(tsid)) is not None,
+            }
+
         if sample_student:
             sample_lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": sample_student["_id"]})
             if not sample_lc_doc:
@@ -349,6 +377,11 @@ def attendance_diag():
             if sample_cc_doc:
                 sample_cc_calendar = sample_cc_doc.get("profile", {}).get("raw", {}).get("submission_calendar")
                 
+        # Get first 3 keys of lc_docs
+        lc_keys = []
+        for k in list(lc_docs.keys())[:6]:
+            lc_keys.append({"key_repr": repr(k), "key_type": str(type(k))})
+
         return jsonify({
             "student_count": student_count,
             "leetcode_count": lc_count,
@@ -356,6 +389,8 @@ def attendance_diag():
             "hackerrank_count": hr_count,
             "leetcode_bulk_found": len(lc_bulk),
             "codechef_bulk_found": len(cc_bulk),
+            "lc_docs_keys_sample": lc_keys,
+            "lookup_trace": lookup_trace,
             "sample_student": {
                 "name": sample_student.get("name") if sample_student else None,
                 "id": str(sample_student["_id"]) if sample_student else None,
