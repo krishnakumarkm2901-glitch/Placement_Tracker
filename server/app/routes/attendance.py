@@ -352,16 +352,25 @@ def attendance_diag():
                 break
         
         lookup_trace = {}
+        active_days_computed = []
         if target_student:
             tsid = target_student["_id"]
+            
+            # Fetch profiles
+            lc_doc = db[COLLECTIONS["leetcode"]].find_one({"student_id": tsid}) or db[COLLECTIONS["leetcode"]].find_one({"student_id": str(tsid)})
+            cc_doc = db[COLLECTIONS["codechef"]].find_one({"student_id": tsid}) or db[COLLECTIONS["codechef"]].find_one({"student_id": str(tsid)})
+            
+            # Calculate submission dates
+            act_days = _get_submission_dates(tsid, 2026, 8, lc_doc=lc_doc, cc_doc=cc_doc)
+            active_days_computed = list(act_days)
+            
             lookup_trace = {
                 "name": target_student.get("name"),
                 "id_repr": repr(tsid),
                 "id_type": str(type(tsid)),
-                "in_lc_docs_directly": tsid in lc_docs,
-                "in_lc_docs_str": str(tsid) in lc_docs,
-                "lc_docs_get_directly": lc_docs.get(tsid) is not None,
-                "lc_docs_get_str": lc_docs.get(str(tsid)) is not None,
+                "lc_doc_found": lc_doc is not None,
+                "cc_doc_found": cc_doc is not None,
+                "active_days_computed": active_days_computed,
             }
 
         if sample_student:
