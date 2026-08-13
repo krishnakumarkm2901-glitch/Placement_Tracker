@@ -92,24 +92,26 @@ export default function AttendancePage() {
           <FilterSelect label="Month" value={filters.month} onChange={(v) => setFilters((p) => ({ ...p, month: Number(v) }))} options={MONTHS.map((m, i) => ({ label: m, value: i + 1 }))} />
           <FilterSelect label="Cal Year" value={filters.year} onChange={(v) => setFilters((p) => ({ ...p, year: Number(v) }))} options={Array.from({ length: 7 }, (_, i) => now.getFullYear() - 3 + i)} />
 
-          <button
-            onClick={handleApply}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-          >
-            Apply
-          </button>
-
-          {isAdmin && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => refreshMutation.mutate()}
-              disabled={refreshMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all cursor-pointer disabled:opacity-50"
-              title="Recalculate and fetch latest platform attendance"
+              onClick={handleApply}
+              className="px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md shadow-teal-500/25 hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
-              <HiOutlineArrowPath className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin text-teal-500' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              Apply
             </button>
-          )}
+
+            {isAdmin && (
+              <button
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 text-surface-700 dark:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-700 transition-all cursor-pointer disabled:opacity-50"
+                title="Recalculate and fetch latest platform attendance"
+              >
+                <HiOutlineArrowPath className={`w-4 h-4 ${refreshMutation.isPending ? 'animate-spin text-teal-500' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
