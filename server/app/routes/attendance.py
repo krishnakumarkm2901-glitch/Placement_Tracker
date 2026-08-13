@@ -234,6 +234,9 @@ def get_all_attendance():
             "departments": all_departments,
             "years": all_years,
         },
+        "debug_leetcode_count": len(lc_docs),
+        "debug_codechef_count": len(cc_docs),
+        "debug_student_ids_len": len(student_ids),
     }), 200
 
 
